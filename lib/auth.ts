@@ -1,6 +1,6 @@
 const DEFAULT_APP_URL = "http://localhost:3000";
 const DEFAULT_ADMIN_EMAILS = ["sunra724@gmail.com", "soilabcoop@gmail.com"];
-const DEFAULT_COUNSELOR_EMAILS: string[] = [];
+const DEFAULT_COUNSELOR_EMAILS = ["sp0408@naver.com", "wonban4@gmail.com"];
 
 export function getAppUrl() {
   return (process.env["NEXT_PUBLIC_APP_URL"] || DEFAULT_APP_URL).replace(/\/+$/, "");
