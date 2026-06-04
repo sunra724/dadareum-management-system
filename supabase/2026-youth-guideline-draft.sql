@@ -98,6 +98,49 @@ create unique index if not exists idx_project_youths_project_serial_active
 create index if not exists idx_project_youths_project_id
   on project_youths(project_id);
 
+alter table project_youths
+add column if not exists phone_digest text;
+
+alter table project_youths
+add column if not exists phone_last4 text not null default '';
+
+create index if not exists idx_project_youths_project_phone_digest
+  on project_youths(project_id, phone_digest)
+  where deleted_at is null and phone_digest is not null;
+
+create table if not exists study_cafe_checkins (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references projects(id) on delete cascade,
+  youth_id bigint not null references project_youths(id) on delete restrict,
+  submitted_at timestamptz not null default now(),
+  attendance_date date not null default (timezone('Asia/Seoul', now())::date),
+  cafe_name text not null default '',
+  memo text not null default '',
+  photo_data_url text not null,
+  photo_file_name text not null default '',
+  photo_mime_type text not null default '',
+  photo_size_bytes integer not null default 0,
+  latitude numeric(10,7),
+  longitude numeric(10,7),
+  location_accuracy_m integer,
+  status text not null default 'pending',
+  reviewed_at timestamptz,
+  reviewed_by text not null default '',
+  review_note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint study_cafe_checkins_status_check
+    check (status in ('pending', 'approved', 'rejected')),
+  constraint study_cafe_checkins_photo_size_check
+    check (photo_size_bytes >= 0)
+);
+
+create index if not exists idx_study_cafe_checkins_project_submitted
+  on study_cafe_checkins(project_id, submitted_at desc);
+
+create index if not exists idx_study_cafe_checkins_youth_submitted
+  on study_cafe_checkins(youth_id, submitted_at desc);
+
 alter table proposal_guideline_meta
 add column if not exists budget_category_id bigint references budget_categories(id) on delete set null;
 

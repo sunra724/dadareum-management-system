@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="다다름 출석인증">
+  <rect width="512" height="512" rx="112" fill="#172033"/>
+  <path d="M134 178c0-18 14-32 32-32h180c18 0 32 14 32 32v154c0 18-14 32-32 32H166c-18 0-32-14-32-32V178z" fill="#fffdfa"/>
+  <path d="M166 210h180M166 256h180M166 302h104" stroke="#2e8b75" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="352" cy="334" r="72" fill="#2e8b75"/>
+  <path d="m318 334 22 22 48-54" fill="none" stroke="#fffdfa" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

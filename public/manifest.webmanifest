@@ -1,0 +1,20 @@
+{
+  "name": "다다름 출석인증",
+  "short_name": "다다름 출석",
+  "description": "청년 다다름사업 스터디카페 출석 인증",
+  "start_url": "/study-cafe/checkin",
+  "scope": "/study-cafe/",
+  "display": "standalone",
+  "background_color": "#f4f0e8",
+  "theme_color": "#172033",
+  "icons": [
+    {
+      "src": "/study-cafe-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "education"],
+  "lang": "ko-KR"
+}

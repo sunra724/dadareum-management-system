@@ -172,6 +172,8 @@ export type ProjectYouth = {
   project_id: number;
   serial_no: number;
   display_name: string;
+  phone_last4: string;
+  has_phone: boolean;
   enrolled_on: string;
   withdrawn_on: string;
   withdrawal_reason: string;
@@ -186,11 +188,55 @@ export type ProjectYouthInput = {
   project_id: number;
   serial_no: number;
   display_name: string;
+  phone_number?: string;
+  clear_phone?: boolean;
   enrolled_on: string;
   withdrawn_on: string;
   withdrawal_reason: string;
   status: ProjectYouth["status"];
   notes: string;
+};
+
+export type StudyCafeCheckinStatus = "pending" | "approved" | "rejected";
+
+export type StudyCafeCheckin = {
+  id: number;
+  project_id: number;
+  project_name: string;
+  youth_id: number;
+  youth_name: string;
+  youth_serial_no: number | null;
+  submitted_at: string;
+  attendance_date: string;
+  cafe_name: string;
+  memo: string;
+  photo_data_url: string;
+  photo_file_name: string;
+  photo_mime_type: string;
+  photo_size_bytes: number;
+  latitude: number | null;
+  longitude: number | null;
+  location_accuracy_m: number | null;
+  status: StudyCafeCheckinStatus;
+  reviewed_at: string;
+  reviewed_by: string;
+  review_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudyCafeCheckinInput = {
+  project_id: number;
+  youth_id: number;
+  cafe_name: string;
+  memo: string;
+  photo_data_url: string;
+  photo_file_name: string;
+  photo_mime_type: string;
+  photo_size_bytes: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_accuracy_m?: number | null;
 };
 
 export type ExpenditureYouthAllocation = {

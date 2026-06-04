@@ -1,5 +1,6 @@
 const DEFAULT_APP_URL = "http://localhost:3000";
 const DEFAULT_ADMIN_EMAILS = ["sunra724@gmail.com", "soilabcoop@gmail.com"];
+const DEFAULT_COUNSELOR_EMAILS: string[] = [];
 
 export function getAppUrl() {
   return (process.env["NEXT_PUBLIC_APP_URL"] || DEFAULT_APP_URL).replace(/\/+$/, "");
@@ -17,6 +18,24 @@ export function getAdminEmails() {
 export function isAdminEmail(email: string | null | undefined) {
   if (!email) return false;
   return getAdminEmails().includes(email.trim().toLowerCase());
+}
+
+export function getCounselorEmails() {
+  const configuredEmails = (process.env["COUNSELOR_EMAILS"] || process.env["NEXT_PUBLIC_COUNSELOR_EMAILS"] || "")
+    .split(/[,\s]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  return configuredEmails.length ? configuredEmails : DEFAULT_COUNSELOR_EMAILS;
+}
+
+export function isCounselorEmail(email: string | null | undefined) {
+  if (!email) return false;
+  return getCounselorEmails().includes(email.trim().toLowerCase());
+}
+
+export function isStudyCafeStaffEmail(email: string | null | undefined) {
+  return isAdminEmail(email) || isCounselorEmail(email);
 }
 
 export function hasSupabaseAuthEnv() {

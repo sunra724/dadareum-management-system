@@ -14,6 +14,7 @@ function emptyYouth(projectId: number, serialNo: number): ProjectYouthInput {
     project_id: projectId,
     serial_no: serialNo,
     display_name: "",
+    phone_number: "",
     enrolled_on: "",
     withdrawn_on: "",
     withdrawal_reason: "",
@@ -32,6 +33,10 @@ export default function YouthManager() {
   const selectedProject = useMemo(
     () => context.projects.find((project) => project.id === projectId) ?? null,
     [context.projects, projectId],
+  );
+  const editingYouth = useMemo(
+    () => youths.find((youth) => youth.id === editingId) ?? null,
+    [editingId, youths],
   );
   const nextSerialNo = useMemo(() => {
     const used = new Set(youths.map((youth) => youth.serial_no));
@@ -105,6 +110,7 @@ export default function YouthManager() {
       project_id: youth.project_id,
       serial_no: youth.serial_no,
       display_name: youth.display_name,
+      phone_number: "",
       enrolled_on: youth.enrolled_on,
       withdrawn_on: youth.withdrawn_on,
       withdrawal_reason: youth.withdrawal_reason,
@@ -148,7 +154,7 @@ export default function YouthManager() {
         </label>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         <div className="panel px-5 py-5">
           <div className="text-sm text-slate-500">등록 청년</div>
           <div className="mt-3 text-3xl font-semibold">{youths.length}</div>
@@ -163,6 +169,12 @@ export default function YouthManager() {
           <div className="text-sm text-slate-500">중도이탈</div>
           <div className="mt-3 text-3xl font-semibold">
             {youths.filter((youth) => youth.status === "withdrawn").length}
+          </div>
+        </div>
+        <div className="panel px-5 py-5">
+          <div className="text-sm text-slate-500">연락처 등록</div>
+          <div className="mt-3 text-3xl font-semibold">
+            {youths.filter((youth) => youth.has_phone).length}
           </div>
         </div>
         <div className="panel px-5 py-5">
@@ -212,6 +224,22 @@ export default function YouthManager() {
                 value={form.display_name}
                 onChange={(event) => setForm({ ...form, display_name: event.target.value })}
               />
+            </label>
+            <label className="block text-sm md:col-span-2">
+              휴대폰번호
+              <input
+                className="field mt-2"
+                type="tel"
+                inputMode="numeric"
+                value={form.phone_number ?? ""}
+                onChange={(event) => setForm({ ...form, phone_number: event.target.value })}
+                placeholder={editingId ? "변경할 때만 새 번호 입력" : "01012345678"}
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                {editingYouth?.has_phone
+                  ? `현재 등록됨${editingYouth.phone_last4 ? ` (끝 ${editingYouth.phone_last4})` : ""}`
+                  : "스터디카페 출석 인증에 사용할 번호입니다."}
+              </span>
             </label>
             <label className="block text-sm">
               참여 시작일
@@ -264,6 +292,7 @@ export default function YouthManager() {
                 <tr>
                   <th className="px-4 py-3">연번</th>
                   <th className="px-4 py-3">이름</th>
+                  <th className="px-4 py-3">휴대폰</th>
                   <th className="px-4 py-3">상태</th>
                   <th className="px-4 py-3">참여기간</th>
                   <th className="px-4 py-3">액션</th>
@@ -277,6 +306,9 @@ export default function YouthManager() {
                       <td className="px-4 py-3">
                         <div className="font-medium">{youth.display_name}</div>
                         {youth.notes ? <div className="mt-1 text-xs text-slate-500">{youth.notes}</div> : null}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {youth.has_phone ? `끝 ${youth.phone_last4 || "****"}` : "미등록"}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`badge ${youth.status === "active" ? "badge-finalized" : "badge-draft"}`}>
@@ -301,7 +333,7 @@ export default function YouthManager() {
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-10 text-center text-slate-500" colSpan={5}>
+                    <td className="px-4 py-10 text-center text-slate-500" colSpan={6}>
                       등록된 참여청년이 없습니다.
                     </td>
                   </tr>

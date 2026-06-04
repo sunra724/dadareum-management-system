@@ -1,6 +1,7 @@
 import { listExpenditures } from "@/lib/db/expenditures";
 import { listProjects } from "@/lib/db/organizations";
 import { listProposals } from "@/lib/db/proposals";
+import { getPhoneDigest, getPhoneLast4, normalizePhoneNumber } from "@/lib/phone-auth";
 import { getSupabaseAdmin, hasSupabaseEnv } from "@/lib/supabase";
 import type {
   BudgetCategory,
@@ -24,7 +25,8 @@ const DEFAULT_MAIN_LIMIT = 2400000;
 const DEFAULT_RELIEF_LIMIT = 1200000;
 let memoryYouthId = 1;
 let memoryAllocationId = 1;
-let memoryYouths: ProjectYouth[] = [];
+type ProjectYouthRecord = ProjectYouth & { phone_digest: string };
+let memoryYouths: ProjectYouthRecord[] = [];
 let memoryAllocations: ExpenditureYouthAllocation[] = [];
 
 const now = () => new Date().toISOString();
@@ -39,6 +41,65 @@ function asText(value: unknown) {
 
 function asBoolean(value: unknown) {
   return Boolean(value);
+}
+
+function getPhoneFields(phoneNumber: string | undefined): { phone_digest: string; phone_last4: string } | null {
+  const normalized = normalizePhoneNumber(phoneNumber ?? "");
+  if (!normalized) return null;
+
+  return {
+    phone_digest: getPhoneDigest(normalized),
+    phone_last4: getPhoneLast4(normalized),
+  };
+}
+
+function getPhoneUpdateFields(input: ProjectYouthInput): { phone_digest?: string | null; phone_last4?: string } {
+  if (input.clear_phone) {
+    return {
+      phone_digest: null,
+      phone_last4: "",
+    };
+  }
+
+  return getPhoneFields(input.phone_number) ?? {};
+}
+
+function getLegacyPhoneFields(phoneNumber: string | undefined) {
+  const phoneFields = getPhoneFields(phoneNumber);
+  return phoneFields
+    ? {
+        phone_ciphertext: phoneFields.phone_digest,
+      }
+    : null;
+}
+
+function getLegacyPhoneUpdateFields(input: ProjectYouthInput) {
+  if (input.clear_phone) {
+    return {
+      phone_ciphertext: null,
+    };
+  }
+
+  return getLegacyPhoneFields(input.phone_number) ?? {};
+}
+
+function toPublicYouth(youth: ProjectYouthRecord): ProjectYouth {
+  return {
+    id: youth.id,
+    project_id: youth.project_id,
+    serial_no: youth.serial_no,
+    display_name: youth.display_name,
+    phone_last4: youth.phone_last4,
+    has_phone: youth.has_phone,
+    enrolled_on: youth.enrolled_on,
+    withdrawn_on: youth.withdrawn_on,
+    withdrawal_reason: youth.withdrawal_reason,
+    status: youth.status,
+    notes: youth.notes,
+    deleted_at: youth.deleted_at,
+    created_at: youth.created_at,
+    updated_at: youth.updated_at,
+  };
 }
 
 function defaultSettings(project: Project | null): DadareumProjectSettings {
@@ -136,12 +197,16 @@ function normalizeBudgetLine(row: Record<string, unknown>): ProjectBudgetLine {
 
 function normalizeYouth(row: Record<string, unknown>): ProjectYouth {
   const status = row.status === "withdrawn" || row.status === "completed" ? row.status : "active";
+  const phoneLast4 = asText(row.phone_last4);
+  const phoneDigest = asText(row.phone_digest) || asText(row.phone_ciphertext);
 
   return {
     id: asNumber(row.id),
     project_id: asNumber(row.project_id),
     serial_no: asNumber(row.serial_no),
     display_name: asText(row.display_name),
+    phone_last4: phoneLast4,
+    has_phone: Boolean(phoneDigest || phoneLast4),
     enrolled_on: asText(row.enrolled_on),
     withdrawn_on: asText(row.withdrawn_on),
     withdrawal_reason: asText(row.withdrawal_reason),
@@ -351,7 +416,8 @@ export async function listProjectYouths(projectId: number): Promise<ProjectYouth
   if (!hasSupabaseEnv()) {
     return memoryYouths
       .filter((youth) => youth.project_id === projectId && !youth.deleted_at)
-      .sort((a, b) => a.serial_no - b.serial_no);
+      .sort((a, b) => a.serial_no - b.serial_no)
+      .map(toPublicYouth);
   }
 
   try {
@@ -367,7 +433,71 @@ export async function listProjectYouths(projectId: number): Promise<ProjectYouth
   } catch {
     return memoryYouths
       .filter((youth) => youth.project_id === projectId && !youth.deleted_at)
-      .sort((a, b) => a.serial_no - b.serial_no);
+      .sort((a, b) => a.serial_no - b.serial_no)
+      .map(toPublicYouth);
+  }
+}
+
+export async function findActiveProjectYouthByNameAndPhone(
+  projectId: number,
+  normalizedName: string,
+  phoneDigest: string,
+): Promise<ProjectYouth | null> {
+  if (!projectId || !normalizedName || !phoneDigest) return null;
+
+  if (!hasSupabaseEnv()) {
+    const youth = memoryYouths.find(
+      (item) =>
+        item.project_id === projectId &&
+        item.status === "active" &&
+        !item.deleted_at &&
+        item.phone_digest === phoneDigest &&
+        item.display_name.trim().replace(/\s+/g, "") === normalizedName,
+    );
+    return youth ? toPublicYouth(youth) : null;
+  }
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const matchRows = (rows: Record<string, unknown>[] | null) =>
+      (rows ?? [])
+      .map((row) => normalizeYouth(row))
+      .find((item) => item.display_name.trim().replace(/\s+/g, "") === normalizedName);
+
+    const queryByColumn = async (column: "phone_digest" | "phone_ciphertext") => {
+      const { data, error } = await supabase
+        .from("project_youths")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("status", "active")
+        .eq(column, phoneDigest)
+        .is("deleted_at", null);
+      if (error) throw error;
+      return matchRows(data);
+    };
+
+    try {
+      const digestMatch = await queryByColumn("phone_digest");
+      if (digestMatch) return digestMatch;
+    } catch {
+      // Older live databases only have phone_ciphertext.
+    }
+
+    try {
+      return (await queryByColumn("phone_ciphertext")) ?? null;
+    } catch {
+      return null;
+    }
+  } catch {
+    const youth = memoryYouths.find(
+      (item) =>
+        item.project_id === projectId &&
+        item.status === "active" &&
+        !item.deleted_at &&
+        item.phone_digest === phoneDigest &&
+        item.display_name.trim().replace(/\s+/g, "") === normalizedName,
+    );
+    return youth ? toPublicYouth(youth) : null;
   }
 }
 
@@ -386,33 +516,45 @@ async function fetchYouthAllocations() {
 
 export async function createProjectYouth(input: ProjectYouthInput): Promise<ProjectYouth> {
   if (!hasSupabaseEnv()) {
-    const created: ProjectYouth = {
-      ...input,
-      id: memoryYouthId++,
-      deleted_at: "",
-      created_at: now(),
-      updated_at: now(),
-    };
-    memoryYouths = [...memoryYouths, created];
-    return created;
+    return createProjectYouthMemory(input);
   }
 
   try {
+    const phoneFields = getPhoneFields(input.phone_number);
+    const legacyPhoneFields = getLegacyPhoneFields(input.phone_number);
+    const payload = {
+      project_id: input.project_id,
+      serial_no: input.serial_no,
+      display_name: input.display_name,
+      ...(phoneFields ?? {}),
+      enrolled_on: input.enrolled_on || null,
+      withdrawn_on: input.withdrawn_on || null,
+      withdrawal_reason: input.withdrawal_reason,
+      status: input.status,
+      notes: input.notes,
+    };
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("project_youths")
-      .insert({
-        project_id: input.project_id,
-        serial_no: input.serial_no,
-        display_name: input.display_name,
-        enrolled_on: input.enrolled_on || null,
-        withdrawn_on: input.withdrawn_on || null,
-        withdrawal_reason: input.withdrawal_reason,
-        status: input.status,
-        notes: input.notes,
-      })
+      .insert(payload)
       .select("*")
       .single();
+
+    if (error && legacyPhoneFields) {
+      const retry = await supabase
+        .from("project_youths")
+        .insert({
+          ...payload,
+          phone_digest: undefined,
+          phone_last4: undefined,
+          ...legacyPhoneFields,
+        })
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error) throw error;
     return normalizeYouth(data);
   } catch {
@@ -421,38 +563,70 @@ export async function createProjectYouth(input: ProjectYouthInput): Promise<Proj
 }
 
 function createProjectYouthMemory(input: ProjectYouthInput): ProjectYouth {
-  const created: ProjectYouth = {
-    ...input,
+  const phoneFields = getPhoneFields(input.phone_number);
+  const created: ProjectYouthRecord = {
     id: memoryYouthId++,
+    project_id: input.project_id,
+    serial_no: input.serial_no,
+    display_name: input.display_name,
+    phone_digest: phoneFields?.phone_digest ?? "",
+    phone_last4: phoneFields?.phone_last4 ?? "",
+    has_phone: Boolean(phoneFields?.phone_digest),
+    enrolled_on: input.enrolled_on,
+    withdrawn_on: input.withdrawn_on,
+    withdrawal_reason: input.withdrawal_reason,
+    status: input.status,
+    notes: input.notes,
     deleted_at: "",
     created_at: now(),
     updated_at: now(),
   };
   memoryYouths = [...memoryYouths, created];
-  return created;
+  return toPublicYouth(created);
 }
 
 export async function updateProjectYouth(id: number, input: ProjectYouthInput): Promise<ProjectYouth | null> {
   if (!hasSupabaseEnv()) return updateProjectYouthMemory(id, input);
 
   try {
+    const phoneFields = getPhoneUpdateFields(input);
+    const legacyPhoneFields = getLegacyPhoneUpdateFields(input);
+    const payload = {
+      project_id: input.project_id,
+      serial_no: input.serial_no,
+      display_name: input.display_name,
+      ...phoneFields,
+      enrolled_on: input.enrolled_on || null,
+      withdrawn_on: input.withdrawn_on || null,
+      withdrawal_reason: input.withdrawal_reason,
+      status: input.status,
+      notes: input.notes,
+      updated_at: now(),
+    };
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("project_youths")
-      .update({
-        project_id: input.project_id,
-        serial_no: input.serial_no,
-        display_name: input.display_name,
-        enrolled_on: input.enrolled_on || null,
-        withdrawn_on: input.withdrawn_on || null,
-        withdrawal_reason: input.withdrawal_reason,
-        status: input.status,
-        notes: input.notes,
-        updated_at: now(),
-      })
+      .update(payload)
       .eq("id", id)
       .select("*")
       .single();
+
+    if (error) {
+      const retry = await supabase
+        .from("project_youths")
+        .update({
+          ...payload,
+          phone_digest: undefined,
+          phone_last4: undefined,
+          ...legacyPhoneFields,
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error) throw error;
     return normalizeYouth(data);
   } catch {
@@ -463,9 +637,35 @@ export async function updateProjectYouth(id: number, input: ProjectYouthInput): 
 function updateProjectYouthMemory(id: number, input: ProjectYouthInput): ProjectYouth | null {
   const current = memoryYouths.find((youth) => youth.id === id);
   if (!current) return null;
-  const updated: ProjectYouth = { ...current, ...input, updated_at: now() };
+
+  const phoneFields = getPhoneUpdateFields(input);
+  const nextPhoneDigest =
+    typeof phoneFields.phone_digest === "string"
+      ? phoneFields.phone_digest
+      : phoneFields.phone_digest === null
+        ? ""
+        : current.phone_digest;
+  const nextPhoneLast4 =
+    typeof phoneFields.phone_last4 === "string"
+      ? phoneFields.phone_last4
+      : current.phone_last4;
+  const updated: ProjectYouthRecord = {
+    ...current,
+    project_id: input.project_id,
+    serial_no: input.serial_no,
+    display_name: input.display_name,
+    phone_digest: nextPhoneDigest,
+    phone_last4: nextPhoneLast4,
+    has_phone: Boolean(nextPhoneDigest),
+    enrolled_on: input.enrolled_on,
+    withdrawn_on: input.withdrawn_on,
+    withdrawal_reason: input.withdrawal_reason,
+    status: input.status,
+    notes: input.notes,
+    updated_at: now(),
+  };
   memoryYouths = memoryYouths.map((youth) => (youth.id === id ? updated : youth));
-  return updated;
+  return toPublicYouth(updated);
 }
 
 export async function deleteProjectYouth(id: number) {
@@ -741,7 +941,7 @@ function buildAlerts(
   project: Project | null,
   settings: DadareumProjectSettings,
   expenditures: Expenditure[],
-  youthRows: DadareumDashboardYouthRow[],
+  youthRows: DadareumDashboardYouthRow[]
 ): DadareumDashboardAlert[] {
   const alerts: DadareumDashboardAlert[] = [];
   const pendingEvidence = expenditures.filter((item) => completionPendingCount(item) > 0);

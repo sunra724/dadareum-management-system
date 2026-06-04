@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, FileText, Landmark, LayoutDashboard, LogOut, Settings } from "lucide-react";
+import { ClipboardList, Coffee, FileText, Landmark, LayoutDashboard, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
 
 const tabs = [
@@ -10,13 +10,20 @@ const tabs = [
   { href: "/budgets", label: "예산관리", icon: Landmark },
   { href: "/proposals", label: "지출품의서", icon: ClipboardList },
   { href: "/expenditures", label: "지출결의서", icon: FileText },
+  { href: "/study-cafe", label: "스터디카페", icon: Coffee },
 ];
 
 export default function TabNav() {
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
 
-  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/study-cafe/checkin" ||
+    pathname === "/study-cafe/my" ||
+    pathname.startsWith("/study-cafe/counselor")
+  ) {
     return null;
   }
 

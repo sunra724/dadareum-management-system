@@ -1,13 +1,29 @@
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { hasAdminAuthConfig, hasSupabaseAuthEnv, isAdminEmail, sanitizeRedirectPath } from "@/lib/auth";
+import {
+  hasAdminAuthConfig,
+  hasSupabaseAuthEnv,
+  isAdminEmail,
+  isStudyCafeStaffEmail,
+  sanitizeRedirectPath,
+} from "@/lib/auth";
 
-const publicPagePaths = ["/login", "/auth/callback"];
-const publicApiPaths = ["/api/auth/logout", "/api/auth/password-reset"];
+const publicPagePaths = ["/login", "/auth/callback", "/study-cafe/checkin", "/study-cafe/my"];
+const publicApiPaths = [
+  "/api/auth/logout",
+  "/api/auth/password-reset",
+  "/api/study-cafe/auth",
+  "/api/study-cafe/my",
+  "/api/study-cafe/submit",
+];
 
 function isPublicPath(pathname: string) {
   return publicPagePaths.includes(pathname) || publicApiPaths.includes(pathname);
+}
+
+function isCounselorPath(pathname: string) {
+  return pathname === "/study-cafe/counselor" || pathname.startsWith("/study-cafe/counselor/");
 }
 
 function buildLoginUrl(request: NextRequest, error?: string) {
@@ -77,7 +93,11 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isAdminEmail(user.email)) {
+  const authorized = isCounselorPath(pathname)
+    ? isStudyCafeStaffEmail(user?.email)
+    : isAdminEmail(user?.email);
+
+  if (!user || !authorized) {
     if (isApiRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
