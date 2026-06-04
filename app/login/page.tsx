@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import LoginForm from "@/components/LoginForm";
-import { getMissingAuthConfigKeys, isAdminEmail, sanitizeRedirectPath } from "@/lib/auth";
+import { getMissingAuthConfigKeys, isAdminEmail, isStudyCafeStaffEmail, sanitizeRedirectPath } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const nextPath = sanitizeRedirectPath(params.next);
+  const isCounselorNextPath = nextPath === "/study-cafe/counselor" || nextPath.startsWith("/study-cafe/counselor/");
   const missingConfigKeys = getMissingAuthConfigKeys();
   const authConfigured = missingConfigKeys.length === 0;
 
@@ -22,7 +23,7 @@ export default async function LoginPage({
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (user && isAdminEmail(user.email)) {
+    if (user && (isAdminEmail(user.email) || (isCounselorNextPath && isStudyCafeStaffEmail(user.email)))) {
       redirect(nextPath);
     }
   }
@@ -35,13 +36,13 @@ export default async function LoginPage({
             <ShieldCheck className="h-6 w-6" />
           </span>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-700">Admin Login</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-700">Staff Login</div>
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">청년 다다름 사업 관리 시스템</h1>
           </div>
         </div>
 
         <p className="mt-5 text-sm leading-6 text-slate-600">
-          소이랩 공용 이메일과 관리자 이메일로 등록된 계정만 접속할 수 있습니다.
+          관리자 또는 상담실무자로 등록된 계정만 접속할 수 있습니다.
         </p>
 
         {!authConfigured ? (
