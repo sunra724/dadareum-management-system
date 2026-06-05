@@ -35,6 +35,7 @@ function toExpenditureInput(item: Expenditure): ExpenditureInput {
     project_id: item.project_id,
     template_code: item.template_code,
     budget_scope: item.budget_scope,
+    budget_category_id: item.budget_category_id,
     budget_category: item.budget_category,
     budget_item: item.budget_item,
     vendor_business_number: item.vendor_business_number,
