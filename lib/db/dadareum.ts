@@ -43,6 +43,11 @@ function asBoolean(value: unknown) {
   return Boolean(value);
 }
 
+function isTestProjectYouth(youth: ProjectYouth) {
+  const normalizedName = youth.display_name.trim().replace(/\s+/g, "");
+  return youth.notes.includes("테스트용") || normalizedName === "소이랩";
+}
+
 function getPhoneFields(phoneNumber: string | undefined): { phone_digest: string; phone_last4: string } | null {
   const normalized = normalizePhoneNumber(phoneNumber ?? "");
   if (!normalized) return null;
@@ -890,7 +895,7 @@ function groupYouthRows(
   }
 
   const rows = youths
-    .filter((youth) => !youth.deleted_at)
+    .filter((youth) => !youth.deleted_at && !isTestProjectYouth(youth))
     .map((youth) => {
       const youthAllocations = allocationByYouth.get(youth.id) ?? [];
       const mainUsed = youthAllocations
