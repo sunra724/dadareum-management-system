@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import CounselorSignOutButton from "@/components/CounselorSignOutButton";
 import { formatCurrency } from "@/lib/format";
-import { AlertTriangle, BarChart3, Coins, UsersRound } from "lucide-react";
+import { AlertTriangle, BarChart3, ClipboardCheck, Coins, UsersRound, WalletCards } from "lucide-react";
 import type {
   DadareumDashboard,
   DadareumDashboardYouthRow,
@@ -73,6 +73,29 @@ function getYouthUsageState(row: DadareumDashboardYouthRow, mainLimit: number) {
   };
 }
 
+function SectionLabel({
+  eyebrow,
+  title,
+  description,
+  icon: Icon,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: typeof BarChart3;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-l-4 border-teal-700 pl-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">{eyebrow}</div>
+        <h2 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h2>
+        <p className="mt-1 text-sm text-slate-600">{description}</p>
+      </div>
+      <Icon className="hidden h-7 w-7 text-teal-700 md:block" />
+    </div>
+  );
+}
+
 export default function StudyCafeCounselorView({
   checkins,
   dashboard,
@@ -110,6 +133,13 @@ export default function StudyCafeCounselorView({
         <CounselorSignOutButton />
       </section>
 
+      <SectionLabel
+        eyebrow="Attendance"
+        title="스터디카페 출석 현황"
+        description="청년이 제출한 출석 인증의 전체 흐름입니다."
+        icon={ClipboardCheck}
+      />
+
       <section className="grid gap-4 md:grid-cols-3">
         <div className="panel px-5 py-5">
           <div className="text-sm text-slate-500">전체 제출</div>
@@ -122,6 +152,27 @@ export default function StudyCafeCounselorView({
         <div className="panel px-5 py-5">
           <div className="text-sm text-slate-500">승인</div>
           <div className="mt-3 text-3xl font-semibold">{approvedCount}</div>
+        </div>
+      </section>
+
+      <section className="mt-10 border-y-2 border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-lg">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-white text-slate-950">
+              <WalletCards className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-teal-200">Direct Cost</div>
+              <h2 className="mt-2 text-3xl font-semibold">청년별 직접사업비 사용현황</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-200">
+                직접사업비 집행률과 청년별 사용액을 별도 영역으로 확인합니다.
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/20 px-4 py-3 text-sm">
+            <div className="text-slate-300">총 참여청년</div>
+            <div className="mt-1 text-2xl font-semibold">{dashboard.youthRows.length}명</div>
+          </div>
         </div>
       </section>
 
@@ -172,9 +223,10 @@ export default function StudyCafeCounselorView({
       </section>
 
       <section className="panel overflow-hidden">
-        <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-100 px-5 py-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">청년별 직접사업비 사용현황</h2>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Youth Usage Table</div>
+            <h3 className="mt-1 text-xl font-semibold text-slate-950">청년별 사용액 상세</h3>
             <p className="mt-1 text-sm text-slate-500">완료 처리된 결의서와 청년별 안분 금액 기준입니다.</p>
           </div>
           <div className="text-xs text-slate-500">
