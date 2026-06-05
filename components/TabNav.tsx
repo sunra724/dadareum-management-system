@@ -35,8 +35,8 @@ export default function TabNav() {
 
   return (
     <header
-      style={{ background: "linear-gradient(135deg, var(--nav), var(--nav-2))" }}
-      className="sticky top-0 z-50 border-b border-white/10 text-white shadow-xl"
+      style={{ background: "var(--green-900)" }}
+      className="sticky top-0 z-50 border-b border-white/10 text-white shadow-md"
     >
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-4">
         <div>
@@ -46,7 +46,7 @@ export default function TabNav() {
           <div className="mt-1 text-[11px] leading-tight text-white/60">지출품의·지출결의·정산 대시보드</div>
         </div>
 
-        <nav className="flex items-center gap-2 rounded-full bg-white/8 p-1">
+        <nav className="flex items-center gap-2 rounded-lg bg-white/10 p-1">
           {tabs.map((tab) => {
             const active =
               tab.href === "/"
@@ -61,8 +61,8 @@ export default function TabNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm ${
-                  active ? "bg-teal-600 text-white shadow-sm" : "text-white/72 hover:text-white"
+                className={`flex min-h-11 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium ${
+                  active ? "bg-white text-[var(--green-900)] shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Icon className="h-4 w-4" />

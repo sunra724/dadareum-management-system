@@ -519,6 +519,10 @@ async function fetchYouthAllocations() {
   }
 }
 
+export async function listAllExpenditureYouthAllocations() {
+  return fetchYouthAllocations();
+}
+
 export async function createProjectYouth(input: ProjectYouthInput): Promise<ProjectYouth> {
   if (!hasSupabaseEnv()) {
     return createProjectYouthMemory(input);

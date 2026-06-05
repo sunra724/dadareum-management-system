@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Noto_Sans_KR } from "next/font/google";
+import { Noto_Sans_KR, Noto_Serif_KR, Space_Mono } from "next/font/google";
 import "./globals.css";
 import PwaRegister from "@/components/PwaRegister";
 import TabNav from "@/components/TabNav";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://dadareum.soilab-youth.kr";
 
-const display = Playfair_Display({
+const display = Noto_Serif_KR({
+  weight: ["600", "700"],
   subsets: ["latin"],
   variable: "--font-display",
 });
@@ -14,6 +15,12 @@ const display = Playfair_Display({
 const sans = Noto_Sans_KR({
   subsets: ["latin"],
   variable: "--font-sans",
+});
+
+const mono = Space_Mono({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -41,7 +48,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
+    <html lang="ko" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <div className="site-shell">
           <TabNav />
