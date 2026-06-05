@@ -59,6 +59,7 @@ function pickExpenditureGuidelineFields(input: ExpenditureInput): ExpenditureGui
     project_id: input.project_id,
     template_code: input.template_code,
     budget_scope: input.budget_scope,
+    budget_category_id: input.budget_category_id,
     budget_category: input.budget_category,
     budget_item: input.budget_item,
     payment_method: input.payment_method,
