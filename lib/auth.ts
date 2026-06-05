@@ -2,17 +2,27 @@ const DEFAULT_APP_URL = "http://localhost:3000";
 const DEFAULT_ADMIN_EMAILS = ["sunra724@gmail.com", "soilabcoop@gmail.com"];
 const DEFAULT_COUNSELOR_EMAILS = ["sp0408@naver.com", "wonban4@gmail.com"];
 
+function parseEmailList(value: string) {
+  return value
+    .split(/[,\s]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function uniqueEmails(emails: string[]) {
+  return Array.from(new Set(emails));
+}
+
 export function getAppUrl() {
   return (process.env["NEXT_PUBLIC_APP_URL"] || DEFAULT_APP_URL).replace(/\/+$/, "");
 }
 
 export function getAdminEmails() {
-  const configuredEmails = (process.env["ADMIN_EMAILS"] || process.env["NEXT_PUBLIC_ADMIN_EMAILS"] || "")
-    .split(/[,\s]+/)
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+  const configuredEmails = parseEmailList(
+    process.env["ADMIN_EMAILS"] || process.env["NEXT_PUBLIC_ADMIN_EMAILS"] || "",
+  );
 
-  return configuredEmails.length ? configuredEmails : DEFAULT_ADMIN_EMAILS;
+  return uniqueEmails([...DEFAULT_ADMIN_EMAILS, ...configuredEmails]);
 }
 
 export function isAdminEmail(email: string | null | undefined) {
@@ -21,12 +31,11 @@ export function isAdminEmail(email: string | null | undefined) {
 }
 
 export function getCounselorEmails() {
-  const configuredEmails = (process.env["COUNSELOR_EMAILS"] || process.env["NEXT_PUBLIC_COUNSELOR_EMAILS"] || "")
-    .split(/[,\s]+/)
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+  const configuredEmails = parseEmailList(
+    process.env["COUNSELOR_EMAILS"] || process.env["NEXT_PUBLIC_COUNSELOR_EMAILS"] || "",
+  );
 
-  return configuredEmails.length ? configuredEmails : DEFAULT_COUNSELOR_EMAILS;
+  return uniqueEmails([...DEFAULT_COUNSELOR_EMAILS, ...configuredEmails]);
 }
 
 export function isCounselorEmail(email: string | null | undefined) {

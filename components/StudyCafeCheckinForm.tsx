@@ -198,6 +198,7 @@ export default function StudyCafeCheckinForm() {
           <div>
             <div className="text-sm uppercase tracking-[0.2em] text-slate-500">Study Cafe</div>
             <h1 className="text-2xl font-semibold text-slate-950">스터디카페 출석 인증</h1>
+            <div className="mt-1 text-xs font-medium text-slate-500">청년다다름사업</div>
           </div>
         </div>
         <div className="mt-5 grid gap-2">
