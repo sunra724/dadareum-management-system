@@ -336,6 +336,7 @@ export type ExpenditureGuidelineFields = {
   project_id: number | null;
   template_code: string;
   budget_scope: BudgetScope;
+  budget_category_id: number | null;
   budget_category: string;
   budget_item: string;
   payment_method: ManagedPaymentMethod;
