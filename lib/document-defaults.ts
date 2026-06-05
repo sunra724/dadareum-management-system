@@ -41,6 +41,7 @@ export function createDefaultExpenditureGuidelineFields(
     project_id: project?.id ?? null,
     template_code: organization?.default_template_code ?? "default",
     budget_scope: "direct",
+    budget_category_id: null,
     budget_category: "",
     budget_item: "",
     payment_method: "account_transfer",
