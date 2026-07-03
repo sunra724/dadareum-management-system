@@ -45,6 +45,7 @@ export function createDefaultExpenditureGuidelineFields(
     budget_category_id: null,
     budget_category: "",
     budget_item: "",
+    sort_order: 0,
     payment_method: "account_transfer",
     vendor_business_number: "",
     evidence_type: "card_payment",

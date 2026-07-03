@@ -38,6 +38,7 @@ function toExpenditureInput(item: Expenditure): ExpenditureInput {
     budget_category_id: item.budget_category_id,
     budget_category: item.budget_category,
     budget_item: item.budget_item,
+    sort_order: item.sort_order,
     vendor_business_number: item.vendor_business_number,
     evidence_type: item.evidence_type,
     supply_amount: item.supply_amount,

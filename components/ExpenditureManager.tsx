@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, Plus, Printer, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import {
   getAmountFieldLabels,
   getAmountPresentationMode,
@@ -19,6 +19,7 @@ import {
 import { createDefaultExpenditureGuidelineFields } from "@/lib/document-defaults";
 import { applyDocumentPrefix, hasDocumentNumberSuffix } from "@/lib/document-number";
 import { resolveExpenditureAmount, withResolvedExpenditureAmount } from "@/lib/expenditure-amount";
+import { orderExpendituresByBusinessDate } from "@/lib/expenditure-order";
 import { formatCurrency, mergeEligibleAmount, splitVatFromTotal, today } from "@/lib/format";
 import {
   buildEvidenceChecklist,
@@ -304,6 +305,7 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
   const [prefilledFromProposalId, setPrefilledFromProposalId] = useState<number | null>(null);
   const [projectYouths, setProjectYouths] = useState<ProjectYouth[]>([]);
   const [youthAllocations, setYouthAllocations] = useState<ExpenditureYouthAllocationInput[]>([]);
+  const [ordering, setOrdering] = useState(false);
 
   const organizations = context.organizations;
   const projects = context.projects;
@@ -341,6 +343,22 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
     [form.budget_category, form.budget_item, form.expense_category],
   );
   const amountLabels = useMemo(() => getAmountFieldLabels(amountMode), [amountMode]);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const allSelected = items.length > 0 && selected.length === items.length;
+  const canMoveSelectedUp = useMemo(
+    () => items.some((item, index) => selectedSet.has(item.id) && index > 0 && !selectedSet.has(items[index - 1].id)),
+    [items, selectedSet],
+  );
+  const canMoveSelectedDown = useMemo(
+    () =>
+      items.some(
+        (item, index) =>
+          selectedSet.has(item.id) &&
+          index < items.length - 1 &&
+          !selectedSet.has(items[index + 1].id),
+      ),
+    [items, selectedSet],
+  );
 
   function updateSupplyAmount(supplyAmount: number) {
     setForm((current) => {
@@ -707,6 +725,62 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
     });
   }
 
+  async function persistOrderedItems(nextItems: Expenditure[]) {
+    const previousItems = items;
+    const optimisticItems = nextItems.map((item, index) => ({ ...item, sort_order: index + 1 }));
+
+    setItems(optimisticItems);
+    setOrdering(true);
+    try {
+      const response = await fetch("/api/expenditures/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: optimisticItems.map((item) => item.id) }),
+      });
+      if (!response.ok) throw new Error("Failed to save expenditure order");
+
+      const orderedItems = (await response.json()) as Expenditure[];
+      setItems(orderedItems);
+      setSelected((current) => current.filter((id) => orderedItems.some((item) => item.id === id)));
+    } catch {
+      setItems(previousItems);
+      window.alert("결의서 순서를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setOrdering(false);
+    }
+  }
+
+  function moveSelected(direction: "up" | "down") {
+    if (!selected.length || ordering) return;
+
+    const nextItems = [...items];
+    if (direction === "up") {
+      for (let index = 1; index < nextItems.length; index += 1) {
+        if (selectedSet.has(nextItems[index].id) && !selectedSet.has(nextItems[index - 1].id)) {
+          [nextItems[index - 1], nextItems[index]] = [nextItems[index], nextItems[index - 1]];
+        }
+      }
+    } else {
+      for (let index = nextItems.length - 2; index >= 0; index -= 1) {
+        if (selectedSet.has(nextItems[index].id) && !selectedSet.has(nextItems[index + 1].id)) {
+          [nextItems[index], nextItems[index + 1]] = [nextItems[index + 1], nextItems[index]];
+        }
+      }
+    }
+
+    if (nextItems.every((item, index) => item.id === items[index]?.id)) return;
+    persistOrderedItems(nextItems);
+  }
+
+  function sortByBusinessDate() {
+    if (ordering) return;
+    persistOrderedItems(orderExpendituresByBusinessDate(items));
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    setSelected(checked ? items.map((item) => item.id) : []);
+  }
+
   const batchHref = `/batch-preview?ids=${selected.join(",")}`;
 
   return (
@@ -718,6 +792,33 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
           <p className="mt-2 max-w-2xl text-sm text-slate-600">실제 지급내역과 증빙 완료 상태를 함께 관리합니다.</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || !canMoveSelectedUp}
+            type="button"
+            onClick={() => moveSelected("up")}
+          >
+            <ArrowUp className="h-4 w-4" />
+            위로
+          </button>
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || !canMoveSelectedDown}
+            type="button"
+            onClick={() => moveSelected("down")}
+          >
+            <ArrowDown className="h-4 w-4" />
+            아래로
+          </button>
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || items.length < 2}
+            type="button"
+            onClick={sortByBusinessDate}
+          >
+            <CalendarDays className="h-4 w-4" />
+            지출일순 정리
+          </button>
           <button className="btn btn-primary" onClick={() => { setEditingId(null); setLinkedProposalName(""); setLinkedProposalDocNumber(""); setYouthAllocations([]); setForm(blankForm(organizations, projects)); setOpen(true); }}>
             <Plus className="h-4 w-4" />새 결의서
           </button>
@@ -732,7 +833,108 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
         ))}
       </section>
 
-      <section className="panel overflow-hidden"><div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-4 py-3">선택</th><th className="px-4 py-3">사업</th><th className="px-4 py-3">예산항목</th><th className="px-4 py-3">지급방법</th><th className="px-4 py-3">증빙</th><th className="px-4 py-3 text-right">금액</th><th className="px-4 py-3">상태</th><th className="px-4 py-3">액션</th></tr></thead><tbody>{items.map((item) => { const pending = item.evidence_checklist.filter((key) => !item.evidence_completion[key]).length; const linkedProposalDocNumber = item.proposal_id ? proposalDocNumberMap[item.proposal_id] || `#${item.proposal_id}` : "없음"; return <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3"><input type="checkbox" checked={selected.includes(item.id)} onChange={() => setSelected((current) => current.includes(item.id) ? current.filter((value) => value !== item.id) : [...current, item.id])} /></td><td className="px-4 py-3"><div className="font-medium">{item.project_name}</div><div className="mt-1 text-xs text-slate-500">품의 {linkedProposalDocNumber}</div></td><td className="px-4 py-3"><div>{item.budget_category || "-"}</div><div className="mt-1 text-xs text-slate-500">{budgetScopeLabel(item.budget_scope)} / {item.budget_item || "-"}</div></td><td className="px-4 py-3">{paymentMethodLabel(item.payment_method)}</td><td className="px-4 py-3"><div className="text-xs text-slate-600">첨부 {countFilledEvidenceItems(item.evidence_sheet)} / 사진 {countFilledPhotoItems(item.photo_sheet)}</div><div className={`mt-1 text-xs ${pending ? "text-amber-600" : "text-emerald-600"}`}>{pending ? `${pending}개 미완료` : "체크 완료"}</div></td><td className="px-4 py-3 text-right">{formatCurrency(resolveExpenditureAmount(item))}원</td><td className="px-4 py-3"><span className={`badge ${item.status === "finalized" ? "badge-finalized" : "badge-draft"}`}>{item.status === "finalized" ? "완료" : "작성중"}</span></td><td className="px-4 py-3"><div className="flex gap-2"><Link className="btn btn-secondary !px-3 !py-2" href={`/preview/${item.id}`} target="_blank"><Eye className="h-4 w-4" /></Link><Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/evidence`}>증빙</Link><Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/photos`}>사진</Link><button className="btn btn-secondary !px-3 !py-2" onClick={() => duplicateExpenditure(item)}>복제</button><button className="btn btn-secondary !px-3 !py-2" onClick={() => openForEdit(item.id)}>수정</button><button className="btn btn-danger !px-3 !py-2" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></button></div></td></tr>; })}</tbody></table></div></section>
+      <section className="panel overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-3">
+                  <input
+                    aria-label="전체 선택"
+                    checked={allSelected}
+                    type="checkbox"
+                    onChange={(event) => toggleSelectAll(event.target.checked)}
+                  />
+                </th>
+                <th className="px-4 py-3">순번</th>
+                <th className="px-4 py-3">사업</th>
+                <th className="px-4 py-3">예산항목</th>
+                <th className="px-4 py-3">지급방법</th>
+                <th className="px-4 py-3">증빙</th>
+                <th className="px-4 py-3 text-right">금액</th>
+                <th className="px-4 py-3">상태</th>
+                <th className="px-4 py-3">액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => {
+                const pending = item.evidence_checklist.filter((key) => !item.evidence_completion[key]).length;
+                const linkedProposalDocNumber = item.proposal_id
+                  ? proposalDocNumberMap[item.proposal_id] || `#${item.proposal_id}`
+                  : "없음";
+
+                return (
+                  <tr key={item.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3">
+                      <input
+                        aria-label={`${index + 1}번 결의서 선택`}
+                        checked={selectedSet.has(item.id)}
+                        type="checkbox"
+                        onChange={() =>
+                          setSelected((current) =>
+                            current.includes(item.id)
+                              ? current.filter((value) => value !== item.id)
+                              : [...current, item.id],
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{index + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{item.project_name}</div>
+                      <div className="mt-1 text-xs text-slate-500">품의 {linkedProposalDocNumber}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{item.budget_category || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {budgetScopeLabel(item.budget_scope)} / {item.budget_item || "-"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{paymentMethodLabel(item.payment_method)}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs text-slate-600">
+                        첨부 {countFilledEvidenceItems(item.evidence_sheet)} / 사진{" "}
+                        {countFilledPhotoItems(item.photo_sheet)}
+                      </div>
+                      <div className={`mt-1 text-xs ${pending ? "text-amber-600" : "text-emerald-600"}`}>
+                        {pending ? `${pending}개 미완료` : "체크 완료"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(resolveExpenditureAmount(item))}원</td>
+                    <td className="px-4 py-3">
+                      <span className={`badge ${item.status === "finalized" ? "badge-finalized" : "badge-draft"}`}>
+                        {item.status === "finalized" ? "완료" : "작성중"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Link className="btn btn-secondary !px-3 !py-2" href={`/preview/${item.id}`} target="_blank">
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                        <Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/evidence`}>
+                          증빙
+                        </Link>
+                        <Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/photos`}>
+                          사진
+                        </Link>
+                        <button className="btn btn-secondary !px-3 !py-2" onClick={() => duplicateExpenditure(item)}>
+                          복제
+                        </button>
+                        <button className="btn btn-secondary !px-3 !py-2" onClick={() => openForEdit(item.id)}>
+                          수정
+                        </button>
+                        <button className="btn btn-danger !px-3 !py-2" onClick={() => remove(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {open ? <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/45 p-4"><div className="panel max-h-[92vh] w-full max-w-6xl overflow-y-auto px-6 py-6"><div className="mb-6 flex items-center justify-between"><div><div className="text-sm text-slate-500">지출결의서</div><h2 className="text-2xl font-semibold">{editingId ? "결의서 수정" : "새 결의서 작성"}</h2>{form.proposal_id ? <p className="mt-2 text-sm text-teal-700">연결 품의서 {linkedProposalDocNumber || `#${form.proposal_id}`}{linkedProposalName ? ` · ${linkedProposalName}` : ""}</p> : null}</div><div className="flex items-center gap-2">{form.proposal_id ? <button className="btn btn-secondary" onClick={() => refillFromLinkedProposal(form.proposal_id!)}>품의 내용 다시 불러오기</button> : null}<button className="btn btn-secondary" onClick={() => setOpen(false)}>닫기</button></div></div>
 

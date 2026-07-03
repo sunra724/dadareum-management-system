@@ -12,12 +12,14 @@ import {
 } from "@/lib/db/guideline-metadata";
 import { embedExpenditureInlineMeta, extractExpenditureInlineMeta } from "@/lib/db/inline-guideline-meta";
 import { resolveExpenditureAmount, withResolvedExpenditureAmount } from "@/lib/expenditure-amount";
+import { orderExpendituresForManagement } from "@/lib/expenditure-order";
 import {
   batchExpenditureMemory,
   createExpenditureMemory,
   deleteExpenditureMemory,
   getExpenditureMemory,
   listExpendituresMemory,
+  reorderExpendituresMemory,
   updateExpenditureMemory,
 } from "@/lib/db/memory-store";
 import { defaultEvidenceChecklist, normalizePaymentMethod, paymentMethodLabel } from "@/lib/guideline";
@@ -48,7 +50,8 @@ function baseGuidelineFallback(row: Record<string, unknown>) {
 function normalizeExpenditure(row: Record<string, unknown>, meta?: unknown | null): Expenditure {
   const projectName = String(row.project_name ?? "");
   const inline = extractExpenditureInlineMeta(row.items);
-  const guideline = normalizeExpenditureGuidelineMeta(meta ?? inline.meta, baseGuidelineFallback(row));
+  const inlineGuideline = normalizeExpenditureGuidelineMeta(inline.meta, baseGuidelineFallback(row));
+  const guideline = normalizeExpenditureGuidelineMeta(meta, inlineGuideline);
   const totalAmount = resolveExpenditureAmount({
     total_amount: Number(row.total_amount ?? 0),
     eligible_amount: guideline.eligible_amount,
@@ -114,7 +117,9 @@ export async function listExpenditures() {
 
   const rows = data ?? [];
   const metaMap = await fetchExpenditureGuidelineMetaMap(rows.map((row) => Number(row.id)));
-  return rows.map((row) => normalizeExpenditure(row, metaMap.get(Number(row.id)) ?? null));
+  return orderExpendituresForManagement(
+    rows.map((row) => normalizeExpenditure(row, metaMap.get(Number(row.id)) ?? null)),
+  );
 }
 
 export async function getExpenditure(id: number) {
@@ -171,6 +176,50 @@ export async function deleteExpenditure(id: number) {
   await deleteExpenditureGuidelineMeta(id);
 }
 
+export async function reorderExpenditures(ids: number[]) {
+  const orderedIds = [...new Set(ids.filter(Boolean))];
+  if (!orderedIds.length) return listExpenditures();
+
+  if (!hasSupabaseEnv()) {
+    reorderExpendituresMemory(orderedIds);
+    return listExpendituresMemory();
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("expenditures").select("*").in("id", orderedIds);
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const metaMap = await fetchExpenditureGuidelineMetaMap(rows.map((row) => Number(row.id)));
+  const expenditureMap = new Map(
+    rows.map((row) => [
+      Number(row.id),
+      normalizeExpenditure(row, metaMap.get(Number(row.id)) ?? null),
+    ]),
+  );
+
+  await Promise.all(
+    orderedIds.map(async (id, index) => {
+      const expenditure = expenditureMap.get(id);
+      if (!expenditure) return;
+
+      const orderedExpenditure = { ...expenditure, sort_order: index + 1 };
+      const { error: updateError } = await supabase
+        .from("expenditures")
+        .update({
+          items: embedExpenditureInlineMeta(orderedExpenditure.items, orderedExpenditure),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (updateError) throw updateError;
+
+      await upsertExpenditureGuidelineMeta(id, orderedExpenditure);
+    }),
+  );
+
+  return listExpenditures();
+}
+
 export async function batchExpenditures(ids: number[]) {
   if (!hasSupabaseEnv()) return batchExpenditureMemory(ids);
 
@@ -180,5 +229,7 @@ export async function batchExpenditures(ids: number[]) {
 
   const rows = data ?? [];
   const metaMap = await fetchExpenditureGuidelineMetaMap(rows.map((row) => Number(row.id)));
-  return rows.map((row) => normalizeExpenditure(row, metaMap.get(Number(row.id)) ?? null));
+  return orderExpendituresForManagement(
+    rows.map((row) => normalizeExpenditure(row, metaMap.get(Number(row.id)) ?? null)),
+  );
 }

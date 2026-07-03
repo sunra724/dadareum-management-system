@@ -63,6 +63,7 @@ function pickExpenditureGuidelineFields(input: ExpenditureInput): ExpenditureGui
     budget_category_id: input.budget_category_id,
     budget_category: input.budget_category,
     budget_item: input.budget_item,
+    sort_order: input.sort_order,
     payment_method: input.payment_method,
     vendor_business_number: input.vendor_business_number,
     evidence_type: input.evidence_type,

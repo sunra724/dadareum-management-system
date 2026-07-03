@@ -340,6 +340,7 @@ export type ExpenditureGuidelineFields = {
   budget_category_id: number | null;
   budget_category: string;
   budget_item: string;
+  sort_order: number;
   payment_method: ManagedPaymentMethod;
   vendor_business_number: string;
   evidence_type: ManagedEvidenceType;
