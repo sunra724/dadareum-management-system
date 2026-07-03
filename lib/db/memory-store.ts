@@ -8,6 +8,7 @@ import {
 } from "@/lib/document-defaults";
 import { today } from "@/lib/format";
 import { defaultEvidenceChecklist } from "@/lib/guideline";
+import { orderProposalsForManagement } from "@/lib/proposal-order";
 import type {
   Expenditure,
   ExpenditureInput,
@@ -231,7 +232,7 @@ export function createProjectMemory(input: Omit<Project, "id" | "created_at" | "
 }
 
 export function listProposalsMemory() {
-  return proposals.slice().sort((a, b) => b.id - a.id);
+  return orderProposalsForManagement(proposals);
 }
 
 export function getProposalMemory(id: number) {
@@ -252,6 +253,15 @@ export function updateProposalMemory(id: number, input: ProposalInput) {
   return updated;
 }
 
+export function reorderProposalsMemory(ids: number[]) {
+  const orderMap = new Map(ids.map((id, index) => [id, index + 1]));
+  proposals = proposals.map((proposal) =>
+    orderMap.has(proposal.id)
+      ? { ...proposal, sort_order: orderMap.get(proposal.id) ?? proposal.sort_order, updated_at: now() }
+      : proposal,
+  );
+}
+
 export function deleteProposalMemory(id: number) {
   proposals = proposals.filter((proposal) => proposal.id !== id);
   expenditures = expenditures.map((item) =>
@@ -260,7 +270,7 @@ export function deleteProposalMemory(id: number) {
 }
 
 export function batchProposalMemory(ids: number[]) {
-  return proposals.filter((proposal) => ids.includes(proposal.id));
+  return orderProposalsForManagement(proposals.filter((proposal) => ids.includes(proposal.id)));
 }
 
 export function listExpendituresMemory() {

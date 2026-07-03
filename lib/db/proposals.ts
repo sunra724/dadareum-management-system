@@ -13,10 +13,12 @@ import {
   deleteProposalMemory,
   getProposalMemory,
   listProposalsMemory,
+  reorderProposalsMemory,
   updateProposalMemory,
 } from "@/lib/db/memory-store";
 import { defaultEvidenceChecklist } from "@/lib/guideline";
 import { getSupabaseAdmin, hasSupabaseEnv } from "@/lib/supabase";
+import { orderProposalsForManagement } from "@/lib/proposal-order";
 import { resolveProposalAmount, withResolvedProposalAmount } from "@/lib/proposal-amount";
 import type { Proposal, ProposalInput } from "@/lib/types";
 
@@ -44,7 +46,8 @@ function baseGuidelineFallback(row: Record<string, unknown>) {
 
 function normalizeProposal(row: Record<string, unknown>, meta?: unknown | null): Proposal {
   const inline = extractProposalInlineMeta(row.items);
-  const guideline = normalizeProposalGuidelineMeta(meta ?? inline.meta, baseGuidelineFallback(row));
+  const inlineGuideline = normalizeProposalGuidelineMeta(inline.meta, baseGuidelineFallback(row));
+  const guideline = normalizeProposalGuidelineMeta(meta, inlineGuideline);
   const totalAmount = resolveProposalAmount({
     total_amount: Number(row.total_amount ?? 0),
     eligible_amount: guideline.eligible_amount,
@@ -97,7 +100,9 @@ export async function listProposals() {
 
   const rows = data ?? [];
   const metaMap = await fetchProposalGuidelineMetaMap(rows.map((row) => Number(row.id)));
-  return rows.map((row) => normalizeProposal(row, metaMap.get(Number(row.id)) ?? null));
+  return orderProposalsForManagement(
+    rows.map((row) => normalizeProposal(row, metaMap.get(Number(row.id)) ?? null)),
+  );
 }
 
 export async function getProposal(id: number) {
@@ -154,6 +159,50 @@ export async function deleteProposal(id: number) {
   await deleteProposalGuidelineMeta(id);
 }
 
+export async function reorderProposals(ids: number[]) {
+  const orderedIds = [...new Set(ids.filter(Boolean))];
+  if (!orderedIds.length) return listProposals();
+
+  if (!hasSupabaseEnv()) {
+    reorderProposalsMemory(orderedIds);
+    return listProposalsMemory();
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("proposals").select("*").in("id", orderedIds);
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const metaMap = await fetchProposalGuidelineMetaMap(rows.map((row) => Number(row.id)));
+  const proposalMap = new Map(
+    rows.map((row) => [
+      Number(row.id),
+      normalizeProposal(row, metaMap.get(Number(row.id)) ?? null),
+    ]),
+  );
+
+  await Promise.all(
+    orderedIds.map(async (id, index) => {
+      const proposal = proposalMap.get(id);
+      if (!proposal) return;
+
+      const orderedProposal = { ...proposal, sort_order: index + 1 };
+      const { error: updateError } = await supabase
+        .from("proposals")
+        .update({
+          items: embedProposalInlineMeta(orderedProposal.items, orderedProposal),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (updateError) throw updateError;
+
+      await upsertProposalGuidelineMeta(id, orderedProposal);
+    }),
+  );
+
+  return listProposals();
+}
+
 export async function batchProposals(ids: number[]) {
   if (!hasSupabaseEnv()) return batchProposalMemory(ids);
 
@@ -163,5 +212,7 @@ export async function batchProposals(ids: number[]) {
 
   const rows = data ?? [];
   const metaMap = await fetchProposalGuidelineMetaMap(rows.map((row) => Number(row.id)));
-  return rows.map((row) => normalizeProposal(row, metaMap.get(Number(row.id)) ?? null));
+  return orderProposalsForManagement(
+    rows.map((row) => normalizeProposal(row, metaMap.get(Number(row.id)) ?? null)),
+  );
 }

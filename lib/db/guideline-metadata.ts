@@ -53,6 +53,7 @@ export function normalizeProposalGuidelineMeta(
     budget_scope: record.budget_scope === "indirect" ? "indirect" : fallback.budget_scope,
     budget_category: asText(record.budget_category) || fallback.budget_category,
     budget_item: asText(record.budget_item) || fallback.budget_item,
+    sort_order: asNumber(record.sort_order ?? fallback.sort_order),
     planned_payment_date: asText(record.planned_payment_date) || fallback.planned_payment_date,
     payment_method: normalizePaymentMethod(record.payment_method ?? fallback.payment_method),
     vendor_name: asText(record.vendor_name) || fallback.vendor_name,

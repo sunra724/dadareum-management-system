@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRightLeft, Eye, Plus, Printer, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowRightLeft, ArrowUp, CalendarDays, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import CurrencyInput from "@/components/CurrencyInput";
 import EvidenceChecklistSelector from "@/components/EvidenceChecklistSelector";
 import {
@@ -22,6 +22,7 @@ import {
   requiresRecipientIdentityCopy,
 } from "@/lib/guideline";
 import { resolveProposalAmount, withResolvedProposalAmount } from "@/lib/proposal-amount";
+import { orderProposalsByBusinessMonth } from "@/lib/proposal-order";
 import type { Organization, Project, Proposal, ProposalInput, ProposalItem } from "@/lib/types";
 
 type ContextPayload = {
@@ -132,11 +133,28 @@ export default function ProposalManager() {
   const [form, setForm] = useState<ProposalInput>(blankProposal([], []));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [ordering, setOrdering] = useState(false);
 
   const organizations = context.organizations;
   const projects = context.projects;
   const availableProjects = projects.filter((project) =>
     form.organization_id ? project.organization_id === form.organization_id : true,
+  );
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const allSelected = items.length > 0 && selected.length === items.length;
+  const canMoveSelectedUp = useMemo(
+    () => items.some((item, index) => selectedSet.has(item.id) && index > 0 && !selectedSet.has(items[index - 1].id)),
+    [items, selectedSet],
+  );
+  const canMoveSelectedDown = useMemo(
+    () =>
+      items.some(
+        (item, index) =>
+          selectedSet.has(item.id) &&
+          index < items.length - 1 &&
+          !selectedSet.has(items[index + 1].id),
+      ),
+    [items, selectedSet],
   );
 
   async function fetchList() {
@@ -384,6 +402,62 @@ export default function ProposalManager() {
     }));
   }
 
+  async function persistOrderedItems(nextItems: Proposal[]) {
+    const previousItems = items;
+    const optimisticItems = nextItems.map((item, index) => ({ ...item, sort_order: index + 1 }));
+
+    setItems(optimisticItems);
+    setOrdering(true);
+    try {
+      const response = await fetch("/api/proposals/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: optimisticItems.map((item) => item.id) }),
+      });
+      if (!response.ok) throw new Error("Failed to save proposal order");
+
+      const orderedItems = (await response.json()) as Proposal[];
+      setItems(orderedItems);
+      setSelected((current) => current.filter((id) => orderedItems.some((item) => item.id === id)));
+    } catch {
+      setItems(previousItems);
+      window.alert("품의서 순서를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setOrdering(false);
+    }
+  }
+
+  function moveSelected(direction: "up" | "down") {
+    if (!selected.length || ordering) return;
+
+    const nextItems = [...items];
+    if (direction === "up") {
+      for (let index = 1; index < nextItems.length; index += 1) {
+        if (selectedSet.has(nextItems[index].id) && !selectedSet.has(nextItems[index - 1].id)) {
+          [nextItems[index - 1], nextItems[index]] = [nextItems[index], nextItems[index - 1]];
+        }
+      }
+    } else {
+      for (let index = nextItems.length - 2; index >= 0; index -= 1) {
+        if (selectedSet.has(nextItems[index].id) && !selectedSet.has(nextItems[index + 1].id)) {
+          [nextItems[index], nextItems[index + 1]] = [nextItems[index + 1], nextItems[index]];
+        }
+      }
+    }
+
+    if (nextItems.every((item, index) => item.id === items[index]?.id)) return;
+    persistOrderedItems(nextItems);
+  }
+
+  function sortByBusinessMonth() {
+    if (ordering) return;
+    persistOrderedItems(orderProposalsByBusinessMonth(items));
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    setSelected(checked ? items.map((item) => item.id) : []);
+  }
+
   const batchHref = `/proposals/batch-preview?ids=${selected.join(",")}`;
 
   return (
@@ -400,6 +474,33 @@ export default function ProposalManager() {
           <button className="btn btn-primary" onClick={openForCreate}>
             <Plus className="h-4 w-4" />
             새 품의서
+          </button>
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || !canMoveSelectedUp}
+            title="선택한 품의서를 한 칸 위로 이동"
+            onClick={() => moveSelected("up")}
+          >
+            <ArrowUp className="h-4 w-4" />
+            위로
+          </button>
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || !canMoveSelectedDown}
+            title="선택한 품의서를 한 칸 아래로 이동"
+            onClick={() => moveSelected("down")}
+          >
+            <ArrowDown className="h-4 w-4" />
+            아래로
+          </button>
+          <button
+            className="btn btn-secondary"
+            disabled={ordering || items.length < 2}
+            title="항목 설명의 월과 지급예정일 기준으로 다시 정렬"
+            onClick={sortByBusinessMonth}
+          >
+            <CalendarDays className="h-4 w-4" />
+            업무월순 정리
           </button>
           {selected.length === 1 ? (
             <button className="btn btn-secondary" onClick={duplicateSelected}>
@@ -435,7 +536,15 @@ export default function ProposalManager() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
-                <th className="px-4 py-3">선택</th>
+                <th className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    aria-label="전체 선택"
+                    onChange={(event) => toggleSelectAll(event.target.checked)}
+                  />
+                </th>
+                <th className="px-4 py-3">순번</th>
                 <th className="px-4 py-3">지원기관/사업</th>
                 <th className="px-4 py-3">예산항목</th>
                 <th className="px-4 py-3">지급방법</th>
@@ -445,7 +554,7 @@ export default function ProposalManager() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {items.map((item, index) => (
                 <tr key={item.id} className="border-t border-slate-100">
                   <td className="px-4 py-3">
                     <input
@@ -460,6 +569,7 @@ export default function ProposalManager() {
                       }
                     />
                   </td>
+                  <td className="px-4 py-3 text-slate-500">{index + 1}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{item.project_name}</div>
                     <div className="mt-1 text-xs text-slate-500">{item.org_name || "-"}</div>

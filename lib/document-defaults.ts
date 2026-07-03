@@ -18,6 +18,7 @@ export function createDefaultProposalGuidelineFields(
     budget_scope: "direct",
     budget_category: "",
     budget_item: "",
+    sort_order: 0,
     planned_payment_date: today(),
     payment_method: "account_transfer",
     vendor_name: "",

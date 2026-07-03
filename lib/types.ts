@@ -318,6 +318,7 @@ export type ProposalGuidelineFields = {
   budget_scope: BudgetScope;
   budget_category: string;
   budget_item: string;
+  sort_order: number;
   planned_payment_date: string;
   payment_method: ManagedPaymentMethod;
   vendor_name: string;

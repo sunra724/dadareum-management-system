@@ -39,6 +39,7 @@ function pickProposalGuidelineFields(input: ProposalInput): ProposalGuidelineFie
     budget_scope: input.budget_scope,
     budget_category: input.budget_category,
     budget_item: input.budget_item,
+    sort_order: input.sort_order,
     planned_payment_date: input.planned_payment_date,
     payment_method: input.payment_method,
     vendor_name: input.vendor_name,
