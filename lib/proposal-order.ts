@@ -13,6 +13,10 @@ function toYearMonthKey(value: YearMonth | null) {
   return value ? value.year * 100 + value.month : 0;
 }
 
+function toSortableYearMonthKey(value: YearMonth | null) {
+  return value ? toYearMonthKey(value) : Number.MAX_SAFE_INTEGER;
+}
+
 function parseDateYearMonth(value?: string | null): YearMonth | null {
   const match = String(value ?? "").match(/^(\d{4})-(0?[1-9]|1[0-2])/u);
   if (!match) return null;
@@ -91,21 +95,21 @@ function proposalYearMonth(proposal: Proposal) {
 
 function dateKey(value?: string | null) {
   const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})/u);
-  if (!match) return 0;
+  if (!match) return Number.MAX_SAFE_INTEGER;
   return Number(`${match[1]}${match[2]}${match[3]}`);
 }
 
 function compareProposalsByBusinessMonth(a: Proposal, b: Proposal) {
-  const monthDiff = toYearMonthKey(proposalYearMonth(b)) - toYearMonthKey(proposalYearMonth(a));
+  const monthDiff = toSortableYearMonthKey(proposalYearMonth(a)) - toSortableYearMonthKey(proposalYearMonth(b));
   if (monthDiff !== 0) return monthDiff;
 
   const dateDiff =
-    dateKey(b.planned_payment_date) - dateKey(a.planned_payment_date) ||
-    dateKey(b.submission_date) - dateKey(a.submission_date) ||
-    dateKey(b.created_at) - dateKey(a.created_at);
+    dateKey(a.planned_payment_date) - dateKey(b.planned_payment_date) ||
+    dateKey(a.submission_date) - dateKey(b.submission_date) ||
+    dateKey(a.created_at) - dateKey(b.created_at);
   if (dateDiff !== 0) return dateDiff;
 
-  return b.id - a.id;
+  return a.id - b.id;
 }
 
 export function compareProposalsForManagement(a: Proposal, b: Proposal) {
