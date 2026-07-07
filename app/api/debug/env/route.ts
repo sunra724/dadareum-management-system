@@ -37,7 +37,7 @@ function inspectValue(key: string) {
 export async function GET() {
   return NextResponse.json({
     checkedAt: new Date().toISOString(),
-    railwayCommit: process.env["RAILWAY_GIT_COMMIT_SHA"]?.slice(0, 8) || null,
+    vercelCommit: process.env["VERCEL_GIT_COMMIT_SHA"]?.slice(0, 8) || null,
     variables: Object.fromEntries(keys.map((key) => [key, inspectValue(key)])),
   });
 }
