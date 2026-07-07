@@ -4,6 +4,8 @@ import UpdatePasswordForm from "@/components/UpdatePasswordForm";
 import { isAdminEmail } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
+export const dynamic = "force-dynamic";
+
 export default async function UpdatePasswordPage() {
   const supabase = await createSupabaseServerClient();
   const {
