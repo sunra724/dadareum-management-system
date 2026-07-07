@@ -52,7 +52,11 @@ export default async function LoginPage({
           </div>
         ) : null}
 
-        <LoginForm nextPath={nextPath} initialError={params.error} disabled={!authConfigured} />
+        <LoginForm
+          nextPath={nextPath}
+          initialError={authConfigured && params.error === "auth_config" ? undefined : params.error}
+          disabled={!authConfigured}
+        />
       </section>
     </div>
   );
