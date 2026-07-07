@@ -12,8 +12,10 @@ import CurrencyInput from "@/components/CurrencyInput";
 import EvidenceChecklistSelector from "@/components/EvidenceChecklistSelector";
 import {
   countFilledEvidenceItems,
+  countFilledInspectionItems,
   countFilledPhotoItems,
   createEvidenceAttachmentSheet,
+  createInspectionSheet,
   createPhotoAttachmentSheet,
 } from "@/lib/attachment-sheets";
 import { createDefaultExpenditureGuidelineFields } from "@/lib/document-defaults";
@@ -30,6 +32,7 @@ import {
   evidenceTypeOptions,
   paymentMethodLabel,
   paymentMethodOptions,
+  requiresInspectionSheet,
   requiresRecipientIdentityCopy,
 } from "@/lib/guideline";
 import { resolveProposalAmount, resolveProposalItemAmount } from "@/lib/proposal-amount";
@@ -80,6 +83,7 @@ function applyProposalToExpenditureForm(
     ? [...proposal.evidence_checklist]
     : buildEvidenceChecklist(proposal.payment_method, {
         budgetItem: proposal.budget_item,
+        budgetCategory: proposal.budget_category,
         expenseCategory: proposal.items.map((item) => item.expense_category).join(" "),
         vendorBusinessNumber: proposal.vendor_business_number,
         vendorName: proposal.vendor_name,
@@ -108,6 +112,10 @@ function applyProposalToExpenditureForm(
       current?.project_name === proposal.project_name && current.evidence_sheet
         ? current.evidence_sheet
         : createEvidenceAttachmentSheet(proposal.project_name),
+    inspection_sheet:
+      current?.project_name === proposal.project_name && current.inspection_sheet
+        ? current.inspection_sheet
+        : createInspectionSheet(proposal.project_name, items),
     photo_sheet:
       current?.project_name === proposal.project_name && current.photo_sheet
         ? current.photo_sheet
@@ -176,6 +184,10 @@ function mergeProposalIntoExistingExpenditure(
       countFilledEvidenceItems(current.evidence_sheet) > 0
         ? current.evidence_sheet
         : proposalBased.evidence_sheet,
+    inspection_sheet:
+      countFilledInspectionItems(current.inspection_sheet) > 0
+        ? current.inspection_sheet
+        : proposalBased.inspection_sheet,
     photo_sheet:
       countFilledPhotoItems(current.photo_sheet) > 0 ? current.photo_sheet : proposalBased.photo_sheet,
   };
@@ -200,6 +212,7 @@ function blankForm(organizations: Organization[], projects: Project[]): Expendit
     receipt_name: "",
     items: [emptyItem()],
     evidence_sheet: createEvidenceAttachmentSheet(project?.name),
+    inspection_sheet: createInspectionSheet(project?.name),
     photo_sheet: createPhotoAttachmentSheet(project?.name),
     status: "draft",
     ...createDefaultExpenditureGuidelineFields(organization, project),
@@ -233,6 +246,7 @@ function cloneExpenditureForReuse(
     evidence_completion: {},
     compliance_flags: [...expenditure.compliance_flags],
     evidence_sheet: createEvidenceAttachmentSheet(projectName),
+    inspection_sheet: createInspectionSheet(projectName, expenditure.items),
     photo_sheet: createPhotoAttachmentSheet(projectName),
   };
 }
@@ -439,6 +453,17 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
     if (!form.budget_category || !form.budget_item) next.push("비목과 세목이 비어 있습니다.");
     if (form.payment_method === "account_transfer" && requiresIdentityCopy) next.push("개인 강사·전문가 계좌이체 건은 신분증 사본과 통장사본을 함께 첨부하세요.");
     if (form.budget_scope === "direct" && youthAllocations.length > 0 && allocationTotal !== allocationTargetAmount) next.push("청년별 안분 합계가 집행인정금액과 다릅니다.");
+    const inspectionRequired =
+      form.evidence_checklist.includes("inspection_report") ||
+      requiresInspectionSheet({
+        budgetItem: form.budget_item,
+        budgetCategory: form.budget_category,
+        expenseCategory: form.expense_category,
+        vendorName: form.payee_company,
+        payeeName: form.payee_name,
+      });
+    if (inspectionRequired && !form.inspection_sheet.inspector_name) next.push("물품·용역 검수 내역서의 검수자 성명을 입력하세요.");
+    if (inspectionRequired && !form.inspection_sheet.items.some((item) => item.photo_data_url)) next.push("물품·용역 검수 내역서에 외관 사진을 첨부하세요.");
     return next;
   }, [allocationTargetAmount, allocationTotal, amountMode, form, requiresIdentityCopy, youthAllocations.length]);
 
@@ -663,6 +688,7 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
       template_code: organization?.default_template_code ?? current.template_code,
       doc_number: applyDocumentPrefix(current.doc_number, "expenditure", current.budget_scope, current.issue_date),
       evidence_sheet: createEvidenceAttachmentSheet(project?.name ?? current.project_name),
+      inspection_sheet: createInspectionSheet(project?.name ?? current.project_name, current.items),
       photo_sheet: createPhotoAttachmentSheet(project?.name ?? current.project_name),
     }));
     setYouthAllocations([]);
@@ -679,6 +705,7 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
       template_code: organization?.default_template_code ?? current.template_code,
       doc_number: applyDocumentPrefix(current.doc_number, "expenditure", current.budget_scope, current.issue_date),
       evidence_sheet: createEvidenceAttachmentSheet(project?.name ?? current.project_name),
+      inspection_sheet: createInspectionSheet(project?.name ?? current.project_name, current.items),
       photo_sheet: createPhotoAttachmentSheet(project?.name ?? current.project_name),
     }));
     setYouthAllocations([]);
@@ -893,8 +920,8 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
                     <td className="px-4 py-3">{paymentMethodLabel(item.payment_method)}</td>
                     <td className="px-4 py-3">
                       <div className="text-xs text-slate-600">
-                        첨부 {countFilledEvidenceItems(item.evidence_sheet)} / 사진{" "}
-                        {countFilledPhotoItems(item.photo_sheet)}
+                        첨부 {countFilledEvidenceItems(item.evidence_sheet)} / 검수{" "}
+                        {countFilledInspectionItems(item.inspection_sheet)} / 사진 {countFilledPhotoItems(item.photo_sheet)}
                       </div>
                       <div className={`mt-1 text-xs ${pending ? "text-amber-600" : "text-emerald-600"}`}>
                         {pending ? `${pending}개 미완료` : "체크 완료"}
@@ -913,6 +940,9 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
                         </Link>
                         <Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/evidence`}>
                           증빙
+                        </Link>
+                        <Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/inspection`}>
+                          검수
                         </Link>
                         <Link className="btn btn-secondary !px-3 !py-2" href={`/expenditures/${item.id}/photos`}>
                           사진
@@ -953,7 +983,7 @@ export default function ExpenditureManager({ initialFromProposalId = null }: { i
           <label className="block text-sm">비목<input className="field mt-2" value={form.budget_category} onChange={(event) => setForm({ ...form, budget_category: event.target.value })} /></label>
           <label className="block text-sm">세목<input className="field mt-2" value={form.budget_item} onChange={(event) => setForm({ ...form, budget_item: event.target.value })} /></label>
           <label className="block text-sm">적요<input className="field mt-2" value={form.expense_category} onChange={(event) => setForm({ ...form, expense_category: event.target.value })} /></label>
-          <label className="block text-sm">지급방법<select className="select mt-2" value={form.payment_method} onChange={(event) => setForm({ ...form, payment_method: event.target.value as ExpenditureInput["payment_method"], evidence_checklist: buildEvidenceChecklist(event.target.value as ExpenditureInput["payment_method"], { budgetItem: form.budget_item, expenseCategory: form.expense_category, vendorBusinessNumber: form.vendor_business_number, vendorName: form.payee_company, payeeName: form.payee_name }), evidence_completion: {} })}>{paymentMethodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="block text-sm">지급방법<select className="select mt-2" value={form.payment_method} onChange={(event) => setForm({ ...form, payment_method: event.target.value as ExpenditureInput["payment_method"], evidence_checklist: buildEvidenceChecklist(event.target.value as ExpenditureInput["payment_method"], { budgetItem: form.budget_item, budgetCategory: form.budget_category, expenseCategory: form.expense_category, vendorBusinessNumber: form.vendor_business_number, vendorName: form.payee_company, payeeName: form.payee_name }), evidence_completion: {} })}>{paymentMethodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label className="block text-sm">증빙유형<select className="select mt-2" value={form.evidence_type} onChange={(event) => setForm({ ...form, evidence_type: event.target.value as ExpenditureInput["evidence_type"] })}>{evidenceTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label className="block text-sm">거래처<input className="field mt-2" value={form.payee_company} onChange={(event) => setForm({ ...form, payee_company: event.target.value })} /></label>
           <label className="block text-sm">{amountLabels.vendorId}<input className="field mt-2" value={form.vendor_business_number} onChange={(event) => setForm({ ...form, vendor_business_number: event.target.value })} /></label>

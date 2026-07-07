@@ -118,6 +118,9 @@ export default function PhotoSheetEditor({ expenditure }: { expenditure: Expendi
             <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/evidence`}>
               증빙서류 첨부지
             </Link>
+            <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/inspection`}>
+              검수 내역서
+            </Link>
             <button className="btn btn-primary" onClick={saveSheet} disabled={isPending}>
               <Save className="h-4 w-4" />
               {isPending ? "저장 중..." : "저장"}

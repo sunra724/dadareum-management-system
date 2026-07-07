@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { getAmountFieldLabels, getAmountPresentationMode } from "@/lib/amount-presentation";
-import { countFilledEvidenceItems, countFilledPhotoItems } from "@/lib/attachment-sheets";
+import {
+  countFilledEvidenceItems,
+  countFilledInspectionItems,
+  countFilledPhotoItems,
+} from "@/lib/attachment-sheets";
 import { resolveExpenditureAmount, resolveExpenditureItemAmount } from "@/lib/expenditure-amount";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -151,6 +155,7 @@ export default function ExpenditurePreview({
         <div className="mb-3 font-semibold">첨부 및 정산 상태</div>
         <div className="space-y-2">
           <div>증빙서류 첨부: {countFilledEvidenceItems(expenditure.evidence_sheet)}건</div>
+          <div>검수 내역서: {countFilledInspectionItems(expenditure.inspection_sheet)}건</div>
           <div>증빙사진 첨부: {countFilledPhotoItems(expenditure.photo_sheet)}건</div>
           <div>
             체크리스트:{" "}

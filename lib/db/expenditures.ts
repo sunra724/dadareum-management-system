@@ -1,5 +1,6 @@
 import {
   normalizeEvidenceAttachmentSheet,
+  normalizeInspectionSheet,
   normalizePhotoAttachmentSheet,
 } from "@/lib/attachment-sheets";
 import { createDefaultExpenditureGuidelineFields } from "@/lib/document-defaults";
@@ -76,6 +77,11 @@ function normalizeExpenditure(row: Record<string, unknown>, meta?: unknown | nul
     receipt_name: String(row.receipt_name ?? ""),
     items: inline.items,
     evidence_sheet: normalizeEvidenceAttachmentSheet(row.evidence_sheet, projectName),
+    inspection_sheet: normalizeInspectionSheet(
+      row.inspection_sheet ?? inline.inspectionSheet,
+      projectName,
+      inline.items,
+    ),
     photo_sheet: normalizePhotoAttachmentSheet(row.photo_sheet, projectName),
     status: (row.status as Expenditure["status"]) ?? "draft",
     created_at: String(row.created_at ?? ""),
@@ -84,8 +90,9 @@ function normalizeExpenditure(row: Record<string, unknown>, meta?: unknown | nul
   };
 }
 
-function toExpenditureRow(input: ExpenditureInput) {
+function toExpenditureRow(input: ExpenditureInput, options: { includeInspectionColumn?: boolean } = {}) {
   const normalized = withResolvedExpenditureAmount(input);
+  const includeInspectionColumn = options.includeInspectionColumn ?? true;
 
   return {
     proposal_id: normalized.proposal_id,
@@ -103,9 +110,16 @@ function toExpenditureRow(input: ExpenditureInput) {
     receipt_name: normalized.receipt_name,
     items: embedExpenditureInlineMeta(normalized.items, normalized),
     evidence_sheet: normalized.evidence_sheet,
+    ...(includeInspectionColumn ? { inspection_sheet: normalized.inspection_sheet } : {}),
     photo_sheet: normalized.photo_sheet,
     status: normalized.status,
   };
+}
+
+function isMissingInspectionColumnError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const message = "message" in error ? String(error.message ?? "") : "";
+  return message.includes("inspection_sheet");
 }
 
 export async function listExpenditures() {
@@ -138,7 +152,16 @@ export async function createExpenditure(input: ExpenditureInput) {
 
   const supabase = getSupabaseAdmin();
   const normalizedInput = withResolvedExpenditureAmount(input);
-  const { data, error } = await supabase.from("expenditures").insert(toExpenditureRow(normalizedInput)).select("*").single();
+  let { data, error } = await supabase.from("expenditures").insert(toExpenditureRow(normalizedInput)).select("*").single();
+  if (error && isMissingInspectionColumnError(error)) {
+    const fallback = await supabase
+      .from("expenditures")
+      .insert(toExpenditureRow(normalizedInput, { includeInspectionColumn: false }))
+      .select("*")
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw error;
 
   const created = normalizeExpenditure(data, normalizedInput);
@@ -151,12 +174,25 @@ export async function updateExpenditure(id: number, input: ExpenditureInput) {
 
   const supabase = getSupabaseAdmin();
   const normalizedInput = withResolvedExpenditureAmount(input);
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("expenditures")
     .update({ ...toExpenditureRow(normalizedInput), updated_at: new Date().toISOString() })
     .eq("id", id)
     .select("*")
     .single();
+  if (error && isMissingInspectionColumnError(error)) {
+    const fallback = await supabase
+      .from("expenditures")
+      .update({
+        ...toExpenditureRow(normalizedInput, { includeInspectionColumn: false }),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) return null;
 
   const updated = normalizeExpenditure(data, normalizedInput);

@@ -3,6 +3,9 @@ import type {
   EvidenceAttachmentItem,
   EvidenceAttachmentSheet,
   EvidenceDocumentType,
+  ExpenditureItem,
+  InspectionSheet,
+  InspectionSheetItem,
   PhotoAttachmentItem,
   PhotoAttachmentSheet,
 } from "@/lib/types";
@@ -67,6 +70,20 @@ export function createPhotoAttachmentItem(): PhotoAttachmentItem {
   };
 }
 
+export function createInspectionSheetItem(item?: Partial<ExpenditureItem>): InspectionSheetItem {
+  return {
+    id: makeId("inspection"),
+    item_name: item?.description ?? "",
+    quantity: item?.description ? "1식" : "",
+    specification: item?.note ?? "",
+    appearance_note: "",
+    inspection_result: "적합",
+    note: "",
+    photo_name: "",
+    photo_data_url: "",
+  };
+}
+
 export function createEvidenceAttachmentSheet(projectName = ""): EvidenceAttachmentSheet {
   return {
     title: projectName ? `${projectName} 증빙서류 첨부철` : "증빙서류 첨부철",
@@ -75,11 +92,58 @@ export function createEvidenceAttachmentSheet(projectName = ""): EvidenceAttachm
   };
 }
 
+export function createInspectionSheet(projectName = "", items: ExpenditureItem[] = []): InspectionSheet {
+  return {
+    title: projectName ? `${projectName} 물품·용역 검수 내역서` : "물품·용역 검수 내역서",
+    inspection_date: today(),
+    inspection_place: "",
+    inspector_name: "",
+    overall_result: "적합",
+    submission_note: "물품 또는 용역을 납품(제공)받은 이후 검수한 내역입니다.",
+    items: items.length ? items.map((item) => createInspectionSheetItem(item)) : [createInspectionSheetItem()],
+  };
+}
+
 export function createPhotoAttachmentSheet(projectName = ""): PhotoAttachmentSheet {
   return {
     title: projectName ? `${projectName} 증빙사진 첨부철` : "증빙사진 첨부철",
     submission_note: "",
     items: [createPhotoAttachmentItem()],
+  };
+}
+
+export function normalizeInspectionSheet(
+  value: unknown,
+  projectName = "",
+  expenditureItems: ExpenditureItem[] = [],
+): InspectionSheet {
+  const record = asRecord(value);
+  const items = Array.isArray(record.items)
+    ? record.items.map((entry) => {
+        const item = asRecord(entry);
+        return {
+          id: asText(item.id) || makeId("inspection"),
+          item_name: asText(item.item_name),
+          quantity: asText(item.quantity),
+          specification: asText(item.specification),
+          appearance_note: asText(item.appearance_note),
+          inspection_result: asText(item.inspection_result) || "적합",
+          note: asText(item.note),
+          photo_name: asText(item.photo_name),
+          photo_data_url: asText(item.photo_data_url),
+        };
+      })
+    : [];
+
+  const fallback = createInspectionSheet(projectName, expenditureItems);
+  return {
+    title: asText(record.title) || fallback.title,
+    inspection_date: asText(record.inspection_date) || fallback.inspection_date,
+    inspection_place: asText(record.inspection_place),
+    inspector_name: asText(record.inspector_name),
+    overall_result: asText(record.overall_result) || fallback.overall_result,
+    submission_note: asText(record.submission_note) || fallback.submission_note,
+    items: items.length ? items : fallback.items,
   };
 }
 
@@ -161,6 +225,19 @@ export function normalizePhotoAttachmentSheet(value: unknown, projectName = ""):
     submission_note: asText(record.submission_note),
     items: items.length ? items : fallback.items,
   };
+}
+
+export function countFilledInspectionItems(sheet: InspectionSheet) {
+  return sheet.items.filter(
+    (item) =>
+      item.item_name ||
+      item.quantity ||
+      item.specification ||
+      item.appearance_note ||
+      item.note ||
+      item.photo_name ||
+      item.photo_data_url,
+  ).length;
 }
 
 export function countFilledEvidenceItems(sheet: EvidenceAttachmentSheet) {

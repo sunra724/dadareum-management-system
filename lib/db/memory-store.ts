@@ -1,5 +1,6 @@
 import {
   createEvidenceAttachmentSheet,
+  createInspectionSheet,
   createPhotoAttachmentSheet,
 } from "@/lib/attachment-sheets";
 import {
@@ -160,6 +161,27 @@ let expenditures: Expenditure[] = [
         },
       ],
     },
+    inspection_sheet: {
+      title: "2026년 청년 다다름 사업 물품·용역 검수 내역서",
+      inspection_date: today(),
+      inspection_place: "서울시 마포구",
+      inspector_name: "이형구",
+      overall_result: "적합",
+      submission_note: "납품 또는 제공받은 물품·용역을 검수한 내역입니다.",
+      items: [
+        {
+          id: "inspection-demo-1",
+          item_name: "진행비 일부",
+          quantity: "1식",
+          specification: "결의서 지출내역 기준",
+          appearance_note: "제공 완료 확인",
+          inspection_result: "적합",
+          note: "",
+          photo_name: "",
+          photo_data_url: "",
+        },
+      ],
+    },
     photo_sheet: {
       title: "2026년 청년 다다름 사업 증빙사진 첨부지",
       submission_note: "행사 진행 사진을 순서대로 첨부합니다.",
@@ -286,6 +308,7 @@ export function createExpenditureMemory(input: ExpenditureInput) {
   const created: Expenditure = {
     ...input,
     evidence_sheet: input.evidence_sheet ?? createEvidenceAttachmentSheet(input.project_name),
+    inspection_sheet: input.inspection_sheet ?? createInspectionSheet(input.project_name, input.items),
     photo_sheet: input.photo_sheet ?? createPhotoAttachmentSheet(input.project_name),
     id: expenditureId++,
     created_at: now(),
@@ -302,6 +325,7 @@ export function updateExpenditureMemory(id: number, input: ExpenditureInput) {
     ...current,
     ...input,
     evidence_sheet: input.evidence_sheet ?? current.evidence_sheet,
+    inspection_sheet: input.inspection_sheet ?? current.inspection_sheet,
     photo_sheet: input.photo_sheet ?? current.photo_sheet,
     id,
     updated_at: now(),

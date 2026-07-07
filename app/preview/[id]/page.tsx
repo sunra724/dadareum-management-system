@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import EvidenceSheetPrint from "@/components/EvidenceSheetPrint";
 import ExpenditurePreview from "@/components/ExpenditurePreview";
+import InspectionSheetPrint from "@/components/InspectionSheetPrint";
 import PhotoSheetPrint from "@/components/PhotoSheetPrint";
 import PdfSaveButton from "@/components/PdfSaveButton";
 import PrintButton from "@/components/PrintButton";
@@ -24,6 +25,7 @@ export default async function ExpenditurePreviewPage({
   const settings = await getSettings();
   const documentTitle = expenditure.doc_number || `지출결의서-${expenditure.id}`;
   const evidenceDocumentTitle = `${documentTitle}_증빙서류첨부지`;
+  const inspectionDocumentTitle = `${documentTitle}_검수내역서`;
   const photoDocumentTitle = `${documentTitle}_증빙사진첨부지`;
   const driveUploadEnabled = hasGoogleDriveUploadEnv();
 
@@ -31,11 +33,14 @@ export default async function ExpenditurePreviewPage({
     <div className="space-y-4">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-slate-500">
-          PDF 저장은 결의서 본문 기준이며, 공유드라이브 업로드는 결의서와 첨부지 2종을 함께 올립니다.
+          PDF 저장은 결의서 본문 기준이며, 공유드라이브 업로드는 결의서와 첨부지 3종을 함께 올립니다.
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/evidence`}>
             증빙서류 첨부지
+          </Link>
+          <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/inspection`}>
+            검수 내역서
           </Link>
           <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/photos`}>
             증빙사진 첨부지
@@ -46,6 +51,7 @@ export default async function ExpenditurePreviewPage({
               uploads={[
                 { targetId: "expenditure-preview-sheet", documentTitle },
                 { targetId: "expenditure-evidence-sheet", documentTitle: evidenceDocumentTitle },
+                { targetId: "expenditure-inspection-sheet", documentTitle: inspectionDocumentTitle },
                 { targetId: "expenditure-photo-sheet", documentTitle: photoDocumentTitle },
               ]}
             />
@@ -74,6 +80,9 @@ export default async function ExpenditurePreviewPage({
       >
         <div id="expenditure-evidence-sheet">
           <EvidenceSheetPrint expenditure={expenditure} sheet={expenditure.evidence_sheet} />
+        </div>
+        <div id="expenditure-inspection-sheet">
+          <InspectionSheetPrint expenditure={expenditure} sheet={expenditure.inspection_sheet} />
         </div>
         <div id="expenditure-photo-sheet">
           <PhotoSheetPrint expenditure={expenditure} sheet={expenditure.photo_sheet} />

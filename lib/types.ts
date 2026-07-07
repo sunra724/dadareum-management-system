@@ -50,6 +50,28 @@ export type EvidenceAttachmentSheet = {
   items: EvidenceAttachmentItem[];
 };
 
+export type InspectionSheetItem = {
+  id: string;
+  item_name: string;
+  quantity: string;
+  specification: string;
+  appearance_note: string;
+  inspection_result: string;
+  note: string;
+  photo_name: string;
+  photo_data_url: string;
+};
+
+export type InspectionSheet = {
+  title: string;
+  inspection_date: string;
+  inspection_place: string;
+  inspector_name: string;
+  overall_result: string;
+  submission_note: string;
+  items: InspectionSheetItem[];
+};
+
 export type PhotoAttachmentItem = {
   id: string;
   title: string;
@@ -387,6 +409,7 @@ export type Expenditure = ExpenditureGuidelineFields & {
   receipt_name: string;
   items: ExpenditureItem[];
   evidence_sheet: EvidenceAttachmentSheet;
+  inspection_sheet: InspectionSheet;
   photo_sheet: PhotoAttachmentSheet;
   status: DocumentStatus;
   created_at: string;

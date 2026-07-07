@@ -67,6 +67,7 @@ export const evidenceChecklistOptions = [
   { key: "card_receipt", label: "카드전표" },
   { key: "shopping_capture", label: "구매사이트 화면캡처" },
   { key: "transaction_statement", label: "거래명세서" },
+  { key: "inspection_report", label: "물품·용역 검수 내역서" },
   { key: "quote", label: "견적서" },
   { key: "contract", label: "계약서" },
   { key: "meeting_minutes", label: "회의록" },
@@ -103,6 +104,7 @@ export function defaultEvidenceChecklist(paymentMethod: ManagedPaymentMethod): E
 
 type EvidenceChecklistContext = {
   budgetItem?: string;
+  budgetCategory?: string;
   expenseCategory?: string;
   vendorBusinessNumber?: string;
   vendorName?: string;
@@ -123,6 +125,40 @@ const identityRequiredKeywords = [
   "수당",
 ] as const;
 
+const inspectionRequiredKeywords = [
+  "물품",
+  "구매",
+  "납품",
+  "용역",
+  "제작",
+  "재료",
+  "교재",
+  "시제품",
+  "홍보물",
+  "기념품",
+  "인쇄",
+  "장비",
+  "소모품",
+  "대여",
+  "임차",
+] as const;
+
+function inspectionContextText(context: EvidenceChecklistContext) {
+  return [
+    context.budgetCategory,
+    context.budgetItem,
+    context.expenseCategory,
+    context.vendorName,
+    context.payeeName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function includesAny(text: string, keywords: readonly string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
 export function requiresRecipientIdentityCopy(context: EvidenceChecklistContext) {
   if ((context.vendorBusinessNumber ?? "").trim()) return false;
 
@@ -138,6 +174,10 @@ export function requiresRecipientIdentityCopy(context: EvidenceChecklistContext)
   return identityRequiredKeywords.some((keyword) => combinedText.includes(keyword));
 }
 
+export function requiresInspectionSheet(context: EvidenceChecklistContext) {
+  return includesAny(inspectionContextText(context), inspectionRequiredKeywords);
+}
+
 export function buildEvidenceChecklist(
   paymentMethod: ManagedPaymentMethod,
   context: EvidenceChecklistContext = {},
@@ -146,6 +186,10 @@ export function buildEvidenceChecklist(
 
   if (paymentMethod === "account_transfer" && requiresRecipientIdentityCopy(context)) {
     checklist.push("recipient_id_copy");
+  }
+
+  if (requiresInspectionSheet(context)) {
+    checklist.push("inspection_report");
   }
 
   return Array.from(new Set(checklist));

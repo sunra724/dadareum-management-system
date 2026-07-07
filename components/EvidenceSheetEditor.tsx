@@ -126,6 +126,9 @@ export default function EvidenceSheetEditor({ expenditure }: { expenditure: Expe
             <Link className="btn btn-secondary" href={`/preview/${expenditure.id}`}>
               결의서 보기
             </Link>
+            <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/inspection`}>
+              검수 내역서
+            </Link>
             <Link className="btn btn-secondary" href={`/expenditures/${expenditure.id}/photos`}>
               사진 첨부지
             </Link>

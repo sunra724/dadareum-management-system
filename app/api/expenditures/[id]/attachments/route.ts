@@ -4,11 +4,13 @@ import type {
   EvidenceAttachmentSheet,
   Expenditure,
   ExpenditureInput,
+  InspectionSheet,
   PhotoAttachmentSheet,
 } from "@/lib/types";
 
 type AttachmentPayload = {
   evidence_sheet?: EvidenceAttachmentSheet;
+  inspection_sheet?: InspectionSheet;
   photo_sheet?: PhotoAttachmentSheet;
 };
 
@@ -29,6 +31,7 @@ function toExpenditureInput(item: Expenditure): ExpenditureInput {
     receipt_name: item.receipt_name,
     items: item.items,
     evidence_sheet: item.evidence_sheet,
+    inspection_sheet: item.inspection_sheet,
     photo_sheet: item.photo_sheet,
     status: item.status,
     organization_id: item.organization_id,
@@ -64,6 +67,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const updated = await updateExpenditure(Number(id), {
     ...toExpenditureInput(current),
     evidence_sheet: body.evidence_sheet ?? current.evidence_sheet,
+    inspection_sheet: body.inspection_sheet ?? current.inspection_sheet,
     photo_sheet: body.photo_sheet ?? current.photo_sheet,
   });
 

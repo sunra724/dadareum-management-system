@@ -2,6 +2,7 @@ import type {
   ExpenditureGuidelineFields,
   ExpenditureInput,
   ExpenditureItem,
+  InspectionSheet,
   ProposalGuidelineFields,
   ProposalInput,
   ProposalItem,
@@ -109,7 +110,10 @@ export function embedExpenditureInlineMeta(items: ExpenditureItem[], input: Expe
     ...items,
     {
       __kind: EXPENDITURE_META_KIND,
-      value: pickExpenditureGuidelineFields(input),
+      value: {
+        ...pickExpenditureGuidelineFields(input),
+        inspection_sheet: input.inspection_sheet,
+      },
     },
   ];
 }
@@ -117,14 +121,16 @@ export function embedExpenditureInlineMeta(items: ExpenditureItem[], input: Expe
 export function extractExpenditureInlineMeta(value: unknown) {
   const items = Array.isArray(value) ? value : [];
   let meta: unknown | null = null;
+  let inspectionSheet: InspectionSheet | null = null;
 
   const visibleItems = items.filter((item) => {
     if (isInlineMetaEnvelope(item, EXPENDITURE_META_KIND)) {
       meta = item.value;
+      inspectionSheet = isRecord(item.value) ? (item.value.inspection_sheet as InspectionSheet | null) : null;
       return false;
     }
     return isExpenditureItem(item);
   }) as ExpenditureItem[];
 
-  return { items: visibleItems, meta };
+  return { items: visibleItems, meta, inspectionSheet };
 }
