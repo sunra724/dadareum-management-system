@@ -347,6 +347,56 @@ h3 {
   display: table-header-group;
 }
 
+.inspection-print-sheet {
+  line-height: 1.35;
+}
+
+.inspection-print-heading > div:first-child {
+  margin-bottom: 2px !important;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+}
+
+.inspection-print-sheet .text-sm {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.inspection-print-sheet .text-xs {
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+}
+
+.inspection-print-sheet .bg-slate-50 {
+  background-color: #ffffff !important;
+}
+
+.inspection-print-table th,
+.inspection-print-table td {
+  padding: 4px 6px !important;
+  vertical-align: top;
+}
+
+.inspection-print-photo {
+  max-height: 76px !important;
+}
+
+.inspection-print-photo-empty {
+  min-height: 46px !important;
+  background-color: #ffffff !important;
+}
+
+.inspection-print-signature th,
+.inspection-print-signature td {
+  padding: 6px 8px !important;
+}
+
+.inspection-print-signature tr:last-child th,
+.inspection-print-signature tr:last-child td {
+  padding-bottom: 10px !important;
+  padding-top: 10px !important;
+}
+
 .approval-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -427,8 +477,21 @@ h3 {
 }
 
 @media print {
+  html,
   body {
-    background: white;
+    background: white !important;
+  }
+
+  .site-shell {
+    min-height: 0 !important;
+    background: white !important;
+  }
+
+  .page-shell {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
   }
 
   .no-print {
@@ -443,6 +506,11 @@ h3 {
     padding: 0;
   }
 
+  .inspection-print-sheet {
+    font-size: 10px !important;
+    line-height: 1.28 !important;
+  }
+
   .print-sheet section,
   .print-sheet table,
   .print-sheet tr {
@@ -452,7 +520,7 @@ h3 {
 
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 10mm;
   }
 }
 
