@@ -19,6 +19,8 @@ export const evidenceDocumentTypeOptions: { value: EvidenceDocumentType; label: 
   { value: "other", label: "기타" },
 ];
 
+export const INSPECTION_PHOTO_LIMIT = 4;
+
 function makeId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
 }
@@ -33,6 +35,31 @@ function asText(value: unknown) {
 
 function asNumber(value: unknown) {
   return Number(value ?? 0) || 0;
+}
+
+function normalizeInspectionPhotos(value: unknown, legacyName = "", legacyDataUrl = "") {
+  const photos = Array.isArray(value)
+    ? value
+        .map((entry) => {
+          const photo = asRecord(entry);
+          return {
+            name: asText(photo.name),
+            data_url: asText(photo.data_url),
+          };
+        })
+        .filter((photo) => photo.name || photo.data_url)
+        .slice(0, INSPECTION_PHOTO_LIMIT)
+    : [];
+
+  return photos.length
+    ? photos
+    : legacyName || legacyDataUrl
+      ? [{ name: legacyName, data_url: legacyDataUrl }]
+      : [];
+}
+
+export function getInspectionItemPhotos(item: Pick<InspectionSheetItem, "photo_name" | "photo_data_url" | "photos">) {
+  return normalizeInspectionPhotos(item.photos, item.photo_name, item.photo_data_url);
 }
 
 export function evidenceTypeLabel(type: EvidenceDocumentType) {
@@ -81,6 +108,7 @@ export function createInspectionSheetItem(item?: Partial<ExpenditureItem>): Insp
     note: "",
     photo_name: "",
     photo_data_url: "",
+    photos: [],
   };
 }
 
@@ -121,6 +149,10 @@ export function normalizeInspectionSheet(
   const items = Array.isArray(record.items)
     ? record.items.map((entry) => {
         const item = asRecord(entry);
+        const legacyName = asText(item.photo_name);
+        const legacyDataUrl = asText(item.photo_data_url);
+        const photos = normalizeInspectionPhotos(item.photos, legacyName, legacyDataUrl);
+        const primaryPhoto = photos[0] ?? { name: legacyName, data_url: legacyDataUrl };
         return {
           id: asText(item.id) || makeId("inspection"),
           item_name: asText(item.item_name),
@@ -129,8 +161,9 @@ export function normalizeInspectionSheet(
           appearance_note: asText(item.appearance_note),
           inspection_result: asText(item.inspection_result) || "적합",
           note: asText(item.note),
-          photo_name: asText(item.photo_name),
-          photo_data_url: asText(item.photo_data_url),
+          photo_name: primaryPhoto.name,
+          photo_data_url: primaryPhoto.data_url,
+          photos,
         };
       })
     : [];
@@ -236,7 +269,8 @@ export function countFilledInspectionItems(sheet: InspectionSheet) {
       item.appearance_note ||
       item.note ||
       item.photo_name ||
-      item.photo_data_url,
+      item.photo_data_url ||
+      getInspectionItemPhotos(item).some((photo) => photo.name || photo.data_url),
   ).length;
 }
 

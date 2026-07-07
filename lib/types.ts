@@ -60,6 +60,10 @@ export type InspectionSheetItem = {
   note: string;
   photo_name: string;
   photo_data_url: string;
+  photos: {
+    name: string;
+    data_url: string;
+  }[];
 };
 
 export type InspectionSheet = {

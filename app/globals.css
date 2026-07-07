@@ -378,7 +378,16 @@ h3 {
 }
 
 .inspection-print-photo {
-  max-height: 76px !important;
+  max-height: 48px !important;
+}
+
+.inspection-print-photo-grid {
+  break-inside: avoid;
+}
+
+.inspection-print-photo-tile {
+  min-height: 50px;
+  background-color: #ffffff !important;
 }
 
 .inspection-print-photo-empty {

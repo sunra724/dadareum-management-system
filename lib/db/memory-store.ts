@@ -179,6 +179,7 @@ let expenditures: Expenditure[] = [
           note: "",
           photo_name: "",
           photo_data_url: "",
+          photos: [],
         },
       ],
     },

@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { countFilledInspectionItems } from "@/lib/attachment-sheets";
+import { countFilledInspectionItems, getInspectionItemPhotos } from "@/lib/attachment-sheets";
 import type { Expenditure, InspectionSheet } from "@/lib/types";
 
 export default function InspectionSheetPrint({
@@ -49,13 +49,22 @@ export default function InspectionSheetPrint({
               <td className="border border-slate-200 px-2 py-1">{item.item_name || "-"}</td>
               <td className="w-16 border border-slate-200 px-2 py-1 text-center">{item.quantity || "-"}</td>
               <td className="border border-slate-200 px-2 py-1">{item.specification || "-"}</td>
-              <td className="inspection-print-photo-cell w-36 border border-slate-200 px-2 py-1">
-                {item.photo_data_url ? (
-                  <img
-                    src={item.photo_data_url}
-                    alt={item.item_name || `검수 사진 ${index + 1}`}
-                    className="inspection-print-photo max-h-[82px] w-full object-contain"
-                  />
+              <td className="inspection-print-photo-cell w-40 border border-slate-200 px-2 py-1">
+                {getInspectionItemPhotos(item).length ? (
+                  <div className="inspection-print-photo-grid grid grid-cols-2 gap-1">
+                    {getInspectionItemPhotos(item).map((photo, photoIndex) => (
+                      <div
+                        key={`${item.id}-inspection-print-photo-${photoIndex}`}
+                        className="inspection-print-photo-tile grid place-items-center border border-slate-200"
+                      >
+                        <img
+                          src={photo.data_url}
+                          alt={item.item_name || `검수 사진 ${index + 1}-${photoIndex + 1}`}
+                          className="inspection-print-photo max-h-[48px] w-full object-contain"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="inspection-print-photo-empty grid min-h-[52px] place-items-center border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
                     사진 없음

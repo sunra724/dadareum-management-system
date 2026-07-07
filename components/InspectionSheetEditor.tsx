@@ -9,6 +9,8 @@ import PrintButton from "@/components/PrintButton";
 import {
   countFilledInspectionItems,
   createInspectionSheetItem,
+  getInspectionItemPhotos,
+  INSPECTION_PHOTO_LIMIT,
 } from "@/lib/attachment-sheets";
 import { convertImageFileToDataUrl } from "@/lib/browser-image";
 import type { Expenditure, InspectionSheet } from "@/lib/types";
@@ -21,6 +23,23 @@ type ReusablePhoto = {
   name: string;
   dataUrl: string;
 };
+
+type InspectionItem = InspectionSheet["items"][number];
+type InspectionPhoto = InspectionItem["photos"][number];
+
+function withInspectionPhotos(item: InspectionItem, photos: InspectionPhoto[]): InspectionItem {
+  const normalizedPhotos = photos
+    .filter((photo) => photo.name || photo.data_url)
+    .slice(0, INSPECTION_PHOTO_LIMIT);
+  const primaryPhoto = normalizedPhotos[0] ?? { name: "", data_url: "" };
+
+  return {
+    ...item,
+    photo_name: primaryPhoto.name,
+    photo_data_url: primaryPhoto.data_url,
+    photos: normalizedPhotos,
+  };
+}
 
 export default function InspectionSheetEditor({ expenditure }: { expenditure: Expenditure }) {
   const [sheet, setSheet] = useState<InspectionSheet>(expenditure.inspection_sheet);
@@ -54,34 +73,51 @@ export default function InspectionSheetEditor({ expenditure }: { expenditure: Ex
   }
 
   async function uploadImage(index: number, files: FileList | null) {
-    const file = files?.[0];
-    if (!file) return;
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) return;
+
+    const currentPhotos = getInspectionItemPhotos(sheet.items[index]);
+    const remainingSlots = INSPECTION_PHOTO_LIMIT - currentPhotos.length;
+    if (remainingSlots <= 0) {
+      setMessage(`검수 사진은 항목당 최대 ${INSPECTION_PHOTO_LIMIT}장까지 첨부할 수 있습니다.`);
+      return;
+    }
+
+    const filesToAdd = selectedFiles.slice(0, remainingSlots);
 
     try {
-      const imageDataUrl = await convertImageFileToDataUrl(file);
+      const photosToAdd = await Promise.all(
+        filesToAdd.map(async (file) => ({
+          name: file.name,
+          data_url: await convertImageFileToDataUrl(file),
+        })),
+      );
+
       setSheet((current) => {
         const items = [...current.items];
-        items[index] = {
-          ...items[index],
-          photo_name: file.name,
-          photo_data_url: imageDataUrl,
-        };
+        const photos = [...getInspectionItemPhotos(items[index]), ...photosToAdd];
+        items[index] = withInspectionPhotos(items[index], photos);
         return { ...current, items };
       });
-      setMessage("검수 사진을 반영했습니다. 저장을 누르면 실제로 보관됩니다.");
+
+      const skippedCount = selectedFiles.length - filesToAdd.length;
+      setMessage(
+        skippedCount
+          ? `검수 사진 ${filesToAdd.length}장을 반영했습니다. 항목당 최대 ${INSPECTION_PHOTO_LIMIT}장까지만 저장됩니다.`
+          : `검수 사진 ${filesToAdd.length}장을 반영했습니다. 저장을 누르면 실제로 보관됩니다.`,
+      );
     } catch {
       setMessage("검수 사진을 불러오지 못했습니다. 다른 이미지로 다시 시도해 주세요.");
     }
   }
 
-  function clearImage(index: number) {
+  function removePhoto(index: number, photoIndex: number) {
     setSheet((current) => {
       const items = [...current.items];
-      items[index] = {
-        ...items[index],
-        photo_name: "",
-        photo_data_url: "",
-      };
+      const photos = getInspectionItemPhotos(items[index]).filter(
+        (_, currentPhotoIndex) => currentPhotoIndex !== photoIndex,
+      );
+      items[index] = withInspectionPhotos(items[index], photos);
       return { ...current, items };
     });
   }
@@ -90,13 +126,19 @@ export default function InspectionSheetEditor({ expenditure }: { expenditure: Ex
     const photo = reusablePhotos.find((item) => item.id === photoId);
     if (!photo) return;
 
+    const currentPhotos = getInspectionItemPhotos(sheet.items[index]);
+    if (currentPhotos.length >= INSPECTION_PHOTO_LIMIT) {
+      setMessage(`검수 사진은 항목당 최대 ${INSPECTION_PHOTO_LIMIT}장까지 첨부할 수 있습니다.`);
+      return;
+    }
+
     setSheet((current) => {
       const items = [...current.items];
-      items[index] = {
-        ...items[index],
-        photo_name: photo.name,
-        photo_data_url: photo.dataUrl,
-      };
+      const photos = [
+        ...getInspectionItemPhotos(items[index]),
+        { name: photo.name, data_url: photo.dataUrl },
+      ];
+      items[index] = withInspectionPhotos(items[index], photos);
       return { ...current, items };
     });
     setMessage("증빙사진 첨부지의 사진을 검수 품목에 반영했습니다. 저장을 누르면 실제로 보관됩니다.");
@@ -110,17 +152,17 @@ export default function InspectionSheetEditor({ expenditure }: { expenditure: Ex
 
     let appliedCount = 0;
     const items = sheet.items.map((item) => {
-      if (item.photo_data_url) return item;
+      const photos = getInspectionItemPhotos(item);
+      const remainingSlots = INSPECTION_PHOTO_LIMIT - photos.length;
+      if (remainingSlots <= 0) return item;
 
-      const photo = reusablePhotos[appliedCount];
-      if (!photo) return item;
+      const photosToAdd = reusablePhotos
+        .slice(appliedCount, appliedCount + remainingSlots)
+        .map((photo) => ({ name: photo.name, data_url: photo.dataUrl }));
+      if (!photosToAdd.length) return item;
 
-      appliedCount += 1;
-      return {
-        ...item,
-        photo_name: photo.name,
-        photo_data_url: photo.dataUrl,
-      };
+      appliedCount += photosToAdd.length;
+      return withInspectionPhotos(item, [...photos, ...photosToAdd]);
     });
 
     if (!appliedCount) {
@@ -332,6 +374,7 @@ export default function InspectionSheetEditor({ expenditure }: { expenditure: Ex
                           className="hidden"
                           type="file"
                           accept="image/*"
+                          multiple
                           onChange={(event) => {
                             uploadImage(index, event.target.files);
                             event.currentTarget.value = "";
@@ -355,21 +398,36 @@ export default function InspectionSheetEditor({ expenditure }: { expenditure: Ex
                           ))}
                         </select>
                       ) : null}
-                      {item.photo_data_url ? (
-                        <button className="btn btn-danger !px-3 !py-2" onClick={() => clearImage(index)}>
-                          <X className="h-4 w-4" />
-                          제거
-                        </button>
-                      ) : null}
+                      <div className="text-xs text-slate-500">
+                        {getInspectionItemPhotos(item).length}/{INSPECTION_PHOTO_LIMIT}장
+                      </div>
                     </div>
-                    {item.photo_data_url ? (
-                      <div className="space-y-2">
-                        <img
-                          src={item.photo_data_url}
-                          alt={item.item_name || `검수 사진 ${index + 1}`}
-                          className="max-h-[260px] w-full rounded-2xl object-contain"
-                        />
-                        <div className="text-xs text-slate-500">{item.photo_name || "검수 사진"}</div>
+                    {getInspectionItemPhotos(item).length ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {getInspectionItemPhotos(item).map((photo, photoIndex) => (
+                          <div
+                            key={`${item.id}-inspection-photo-${photoIndex}`}
+                            className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+                          >
+                            <div className="relative grid aspect-[4/3] place-items-center bg-slate-50">
+                              <img
+                                src={photo.data_url}
+                                alt={item.item_name || `검수 사진 ${index + 1}-${photoIndex + 1}`}
+                                className="h-full w-full object-contain"
+                              />
+                              <button
+                                className="absolute right-1 top-1 rounded bg-white/90 p-1 text-rose-600 shadow-sm"
+                                onClick={() => removePhoto(index, photoIndex)}
+                                title="사진 제거"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="truncate px-2 py-1 text-[11px] text-slate-500">
+                              {photo.name || `검수 사진 ${photoIndex + 1}`}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="grid min-h-[220px] place-items-center rounded-2xl border border-dashed border-slate-300 text-sm text-slate-400">
