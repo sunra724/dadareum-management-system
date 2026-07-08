@@ -2,6 +2,8 @@
 import { countFilledInspectionItems, getInspectionItemPhotos } from "@/lib/attachment-sheets";
 import type { Expenditure, InspectionSheet } from "@/lib/types";
 
+const DEFAULT_INSPECTOR_SIGNATURE_SRC = "/signatures/kang-areum-signature.png";
+
 export default function InspectionSheetPrint({
   expenditure,
   sheet,
@@ -96,7 +98,13 @@ export default function InspectionSheetPrint({
             </tr>
             <tr>
               <th className="border border-slate-200 bg-slate-50 px-2 py-4 text-left">서명</th>
-              <td className="border border-slate-200 px-2 py-4">(서명)</td>
+              <td className="border border-slate-200 px-2 py-2 text-center">
+                <img
+                  src={DEFAULT_INSPECTOR_SIGNATURE_SRC}
+                  alt="강아름 서명"
+                  className="inspection-signature-image"
+                />
+              </td>
             </tr>
           </tbody>
         </table>

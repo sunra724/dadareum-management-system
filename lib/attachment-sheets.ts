@@ -20,6 +20,7 @@ export const evidenceDocumentTypeOptions: { value: EvidenceDocumentType; label: 
 ];
 
 export const INSPECTION_PHOTO_LIMIT = 4;
+export const DEFAULT_INSPECTOR_NAME = "강아름";
 
 function makeId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
@@ -125,7 +126,7 @@ export function createInspectionSheet(projectName = "", items: ExpenditureItem[]
     title: projectName ? `${projectName} 물품·용역 검수 내역서` : "물품·용역 검수 내역서",
     inspection_date: today(),
     inspection_place: "",
-    inspector_name: "",
+    inspector_name: DEFAULT_INSPECTOR_NAME,
     overall_result: "적합",
     submission_note: "물품 또는 용역을 납품(제공)받은 이후 검수한 내역입니다.",
     items: items.length ? items.map((item) => createInspectionSheetItem(item)) : [createInspectionSheetItem()],
@@ -173,7 +174,7 @@ export function normalizeInspectionSheet(
     title: asText(record.title) || fallback.title,
     inspection_date: asText(record.inspection_date) || fallback.inspection_date,
     inspection_place: asText(record.inspection_place),
-    inspector_name: asText(record.inspector_name),
+    inspector_name: asText(record.inspector_name) || fallback.inspector_name,
     overall_result: asText(record.overall_result) || fallback.overall_result,
     submission_note: asText(record.submission_note) || fallback.submission_note,
     items: items.length ? items : fallback.items,

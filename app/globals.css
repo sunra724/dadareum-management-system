@@ -406,6 +406,14 @@ h3 {
   padding-top: 10px !important;
 }
 
+.inspection-signature-image {
+  display: block;
+  max-height: 34px;
+  max-width: 132px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
 .approval-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
