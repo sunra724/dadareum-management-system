@@ -373,25 +373,37 @@ h3 {
 
 .inspection-print-table th,
 .inspection-print-table td {
-  padding: 4px 6px !important;
+  padding: 8px 6px !important;
   vertical-align: top;
 }
 
+.inspection-print-photo-cell {
+  width: 70mm !important;
+}
+
 .inspection-print-photo {
-  max-height: 48px !important;
+  width: 100%;
+  height: auto;
+  max-height: 96px !important;
+  object-fit: contain;
 }
 
 .inspection-print-photo-grid {
   break-inside: avoid;
+  gap: 6px !important;
+}
+
+.inspection-print-photo-grid:has(.inspection-print-photo-tile:only-child) {
+  grid-template-columns: 1fr !important;
 }
 
 .inspection-print-photo-tile {
-  min-height: 50px;
+  min-height: 100px;
   background-color: #ffffff !important;
 }
 
 .inspection-print-photo-empty {
-  min-height: 46px !important;
+  min-height: 92px !important;
   background-color: #ffffff !important;
 }
 
